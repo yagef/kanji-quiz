@@ -1,0 +1,33 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    working_dir: /app
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+      - go-build-cache:/root/.cache/go-build
+    ports:
+      - "8080:8080"
+    environment:
+      # pgx-friendly connection string style
+      DATABASE_URL: "postgres://postgres:PN5KPPQ4fHEAm7qiWg3n@db:5433/kanji?sslmode=disable"
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: PN5KPPQ4fHEAm7qiWg3n
+      POSTGRES_DB: kanji
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+  go-mod-cache:
+  go-build-cache:
