@@ -1,17 +1,17 @@
 # Dockerfile.dev
+
 FROM golang:alpine
 
 WORKDIR /app
 
 # Install Air (hot reload)
 RUN go install github.com/air-verse/air@latest
+RUN go install github.com/a-h/templ/cmd/templ@latest
 
 # Pre-cache modules (speeds up first run)
 COPY go.mod go.sum ./
-RUN go mod download
+RUN go mod download && go mod verify
 
 # App code (will be overridden by volume mount in compose)
-COPY . .
-
-EXPOSE 8080
-CMD ["air", "-c", ".air.toml"]
+COPY . ./
+CMD ["air"]

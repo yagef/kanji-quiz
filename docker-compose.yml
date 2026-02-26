@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile.dev
     working_dir: /app
     volumes:
-      - .:/app
+      - ./:/app
       - go-mod-cache:/go/pkg/mod
       - go-build-cache:/root/.cache/go-build
     ports:
@@ -26,6 +26,7 @@ services:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
 
 volumes:
   pgdata:
