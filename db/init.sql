@@ -1,22 +1,20 @@
 CREATE TABLE quizzes (
-                         id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                         title     TEXT NOT NULL,
-                         status    TEXT DEFAULT 'draft', -- draft | lobby | active | finished
-                         current_question_index INT DEFAULT 0
+                             id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                             title     TEXT NOT NULL
 );
 
 CREATE TABLE questions (
-                           id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                           quiz_id          UUID REFERENCES quizzes(id),
-                           kanji            TEXT NOT NULL,
-                           order_index      INT NOT NULL,
-                           correct_answer_id UUID  -- FK to answers, set after insert
+                            id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                            quiz_id          UUID REFERENCES quizzes(id),
+                            kanji            TEXT NOT NULL,
+                            order_index      INT NOT NULL,
+                            correct_answer_id UUID  -- FK to answers, set after insert
 );
 
 CREATE TABLE answers (
-                         id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                         question_id UUID REFERENCES questions(id),
-                         text        TEXT NOT NULL  -- reading or meaning
+                             id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                             question_id UUID REFERENCES questions(id),
+                             text        TEXT NOT NULL  -- reading or meaning
 );
 
 CREATE TABLE decoy_words (
@@ -44,8 +42,8 @@ CREATE TABLE submissions (
 
 -- Tracks which answer combo each participant saw (for deduplication)
 CREATE TABLE answer_assignments (
-                                    participant_id UUID REFERENCES participants(id),
-                                    question_id    UUID REFERENCES questions(id),
-                                    answer_options UUID[],  -- array of 4 answer IDs shown
-                                    PRIMARY KEY (participant_id, question_id)
+                            participant_id UUID REFERENCES participants(id),
+                            question_id    UUID REFERENCES questions(id),
+                            answer_options UUID[],  -- array of 4 answer IDs shown
+                            PRIMARY KEY (participant_id, question_id)
 );
