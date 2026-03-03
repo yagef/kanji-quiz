@@ -7,7 +7,8 @@ tmp_dir = "tmp"
 
 [build]
   args_bin = []
-  cmd = "templ generate && go build -o ./tmp/app ./server"
+  cmd = "templ generate && go build -gcflags='all=-N -l' -o ./tmp/app ./server"
+  full_bin = "dlv exec --headless --listen=0.0.0.0:40000 --api-version=2 --accept-multiclient --continue ./tmp/app"
   delay = 1000
   entrypoint = ["tmp//app"]
   include_ext = ["go", "templ", "html", "css", "js"]
@@ -16,7 +17,6 @@ tmp_dir = "tmp"
   exclude_regex = ["_test.go", ".*_templ\\.go$"]
   exclude_unchanged = false
   follow_symlink = false
-  full_bin = ""
   ignore_dangerous_root_dir = false
   include_dir = []
   include_file = []

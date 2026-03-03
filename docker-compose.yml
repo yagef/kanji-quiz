@@ -1,5 +1,6 @@
 services:
   api:
+    image: kanji-quiz:latest
     build:
       context: .
       dockerfile: Dockerfile.dev
@@ -10,11 +11,18 @@ services:
       - go-build-cache:/root/.cache/go-build
     ports:
       - "8080:8080"
+      - "40000:40000"
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
     environment:
       # pgx-friendly connection string style
       DATABASE_URL: "postgres://postgres:PN5KPPQ4fHEAm7qiWg3n@db:5433/kanji?sslmode=disable"
     depends_on:
       - db
+    env_file:
+      - .env
 
   db:
     image: postgres:16

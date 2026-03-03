@@ -1,96 +1,68 @@
 package handlers
 
 import (
+	"kanji-quiz/pages"
 	"net/http"
-	"os"
+	"strings"
 
-	"github.com/gorilla/sessions"
+	"github.com/a-h/templ"
+	"github.com/gin-gonic/gin"
 )
 
-// Keys: 32-64 bytes auth key + optional 16/24/32 bytes encryption key
-var store = sessions.NewCookieStore(
-	[]byte(os.Getenv("SESSION_AUTH_KEY")),    // HMAC signing key
-	[]byte(os.Getenv("SESSION_ENCRYPT_KEY")), // AES encryption key (optional)
-)
-
-func Login(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
+func UserLoginHandler(c *gin.Context) {
+	switch c.Request.Method {
+	case http.MethodPost:
+		userPostHandler(c.Writer, c.Request)
+	case http.MethodGet:
+		userGetHandler(c.Writer, c.Request)
+	default:
+		HandleError(http.StatusMethodNotAllowed, "Method are not allowed", "").ServeHTTP(c.Writer, c.Request)
 	}
-
-	if err := r.ParseForm(); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		HandleLogin("Invalid form data").ServeHTTP(w, r)
-		return
-	}
-
-	login := r.FormValue("login")
-	password := r.FormValue("password")
-
-	if login == "" || password == "" {
-		w.WriteHeader(http.StatusUnauthorized)
-		HandleLogin("Login and password are required").ServeHTTP(w, r)
-		return
-	}
-
-	if login != "admin" || password != "pswrd" {
-		w.WriteHeader(http.StatusUnauthorized)
-		HandleLogin("Incorrect login or password").ServeHTTP(w, r)
-		return
-	}
-
-	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }
 
-func loginHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		HandleError(http.StatusMethodNotAllowed, "Method not allowed", "").ServeHTTP(w, r)
-		return
-	}
+func userGetHandler(w http.ResponseWriter, r *http.Request) {
+	returnURL := r.URL.Query().Get("next")
+	_ = pages.UserLogin("", returnURL).Render(r.Context(), w)
+}
 
+func userPostHandler(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		HandleLogin("Invalid form data").ServeHTTP(w, r)
+		userError("Invalid form data").ServeHTTP(w, r)
 		return
 	}
 
-	login := r.FormValue("login")
-	password := r.FormValue("password")
+	login := strings.TrimSpace(r.FormValue("login"))
 
-	if login == "" || password == "" {
+	if login == "" {
 		w.WriteHeader(http.StatusUnauthorized)
-		HandleLogin("Login and password are required").ServeHTTP(w, r)
-		return
-	}
-
-	if login != "admin" || password != "pswrd" {
-		w.WriteHeader(http.StatusUnauthorized)
-		HandleLogin("Incorrect login or password").ServeHTTP(w, r)
+		userError("Login are required").ServeHTTP(w, r)
 		return
 	}
 
 	session, err := store.Get(r, "session-name")
 	if err != nil {
-		HandleError(http.StatusInternalServerError, "Session error", "").ServeHTTP(w, r)
+		logout(w, r)
+		HandleErr(http.StatusInternalServerError, "Session error", err).ServeHTTP(w, r)
 		return
 	}
 
 	session.Values["user_id"] = login
 	session.Values["authenticated"] = true
+	session.Values["is_admin"] = false
 
 	if err := session.Save(r, w); err != nil {
-		HandleError(http.StatusInternalServerError, "Failed to save session", "").ServeHTTP(w, r)
+		HandleErr(http.StatusInternalServerError, "Failed to save session", err).ServeHTTP(w, r)
 		return
 	}
 
-	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+	nextURL := safeReturnURL(r.FormValue("returnURL"))
+	if nextURL == "" {
+		nextURL = "/history"
+	}
+	http.Redirect(w, r, nextURL, http.StatusSeeOther)
 }
 
-func logoutHandler(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "session-name")
-	session.Values["authenticated"] = false
-	session.Options.MaxAge = -1 // Delete the cookie
-	_ = session.Save(r, w)
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+func userError(msg string) *templ.ComponentHandler {
+	return templ.Handler(pages.UserLogin(msg, ""))
 }

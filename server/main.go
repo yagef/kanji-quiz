@@ -3,20 +3,30 @@ package main
 import (
 	"kanji-quiz/server/handlers"
 	"log"
-	"net/http"
 
-	"kanji-quiz/pages"
-
-	"github.com/a-h/templ"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	mux := http.NewServeMux()
-	mux.Handle("GET /login", templ.Handler(pages.Login("")))
-	mux.HandleFunc("POST /login", handlers.Login)
-	mux.Handle("/", handlers.Handle404())
+	r := gin.Default()
+	public := r.Group("/")
+	{
+		public.Any("/login", handlers.UserLoginHandler)
+		public.Any("/logout", func(c *gin.Context) {
+			handlers.LogoutHandler(c.Writer, c.Request)
+		})
+		public.Any("/admin", func(c *gin.Context) {
+			handlers.AdminLoginHandler(c.Writer, c.Request)
+		})
+	}
 
-	err := http.ListenAndServe(":8080", mux)
+	/*protected := r.Group("/", handlers.AuthMiddleware)
+	{
+	}*/
+	r.NoRoute(func(c *gin.Context) {
+		handlers.Handle404().ServeHTTP(c.Writer, c.Request)
+	})
+	err := r.Run(":8080")
 	if err != nil {
 		log.Fatalf(err.Error())
 		return

@@ -8,7 +8,7 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-func UserLogin(errorMsg string, returnURL string) templ.Component {
+func AdminLogin(errorMsg string, returnURL string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -29,7 +29,7 @@ func UserLogin(errorMsg string, returnURL string) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<html lang=\"en\"><head><title>User Login</title><style>\n        body { font-family: Arial, sans-serif; background: #f4f4f4; }\n        .login-container { width: 300px; margin: 100px auto; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }\n        .login-container h2 { text-align: center; }\n        label { display: block; margin-top: 10px; }\n        input[type=\"text\"] { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }\n        button { width: 100%; margin-top: 15px; padding: 10px; background: #007bff; border: none; color: #fff; cursor: pointer; font-size: 16px; border-radius: 4px; }\n        button:hover { background: #0056b3; }\n        .error-wrapper { text-align: center; }\n        .error { display: inline-block; color: #b00020; margin-top: 10px; margin-bottom: 5px; font-size: 16px; }\n    </style></head><body><div class=\"login-container\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<html lang=\"en\"><head><title>Admin Login</title><style>\r\n        body { font-family: Arial, sans-serif; background: #f4f4f4; }\r\n        .login-container { width: 300px; margin: 100px auto; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }\r\n        .login-container h2 { text-align: center; }\r\n        label { display: block; margin-top: 10px; }\r\n        input[type=\"text\"], input[type=\"password\"] { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }\r\n        button { width: 100%; margin-top: 15px; padding: 10px; background: #007bff; border: none; color: #fff; cursor: pointer; font-size: 16px; border-radius: 4px; }\r\n        button:hover { background: #0056b3; }\r\n        .error-wrapper { text-align: center; }\r\n        .error { display: inline-block; color: #b00020; margin-top: 10px; margin-bottom: 5px; font-size: 16px; }\r\n    </style></head><body><div class=\"login-container\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -41,7 +41,7 @@ func UserLogin(errorMsg string, returnURL string) templ.Component {
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(errorMsg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/login.templ`, Line: 23, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/admin.templ`, Line: 23, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 			if templ_7745c5c3_Err != nil {
@@ -52,7 +52,7 @@ func UserLogin(errorMsg string, returnURL string) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<form action=\"/login\" method=\"post\"><input type=\"hidden\" name=\"returnURL\" value=\"{ returnURL }\"> <label for=\"login\"></label> <input type=\"text\" id=\"login\" name=\"login\" placeholder=\"Enter your name\" required> <button type=\"submit\">Continue</button></form><p style=\"text-align:center;margin-top:10px;\"><a href=\"/admin\">Admin login</a></p></div></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<form action=\"/admin\" method=\"post\"><input type=\"hidden\" name=\"returnURL\" value=\"{ returnURL }\"> <label for=\"password\"></label> <input type=\"password\" id=\"password\" name=\"password\" placeholder=\"Enter password\" required> <button type=\"submit\">Login</button></form><p style=\"text-align:center;margin-top:10px;\"><a href=\"/login\">User login</a></p></div></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -1,49 +1,63 @@
 CREATE TABLE quizzes (
-                             id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                             title     TEXT NOT NULL
+                         id          UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+                         title       TEXT NOT NULL
 );
 
+CREATE TABLE quiz_sessions (
+                               id          UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+                               quiz_id     UUID REFERENCES quizzes(id),
+                               token       UUID DEFAULT gen_random_uuid() NOT NULL  -- for QR generation
+);
+
+CREATE UNIQUE INDEX idx_quiz_sessions_token ON quiz_sessions (token);
+
+CREATE TABLE answer_types (
+                              id    serial PRIMARY KEY NOT NULL,
+                              text  TEXT NOT NULL,
+                              title TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_answer_types_text ON answer_types (lower(text));
+
+INSERT INTO answer_types (text, title)
+VALUES ('Reading', 'What is the reading of this word?'), ('Meaning', 'What is the meaning of this word?');
+
 CREATE TABLE questions (
-                            id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                            quiz_id          UUID REFERENCES quizzes(id),
-                            kanji            TEXT NOT NULL,
-                            order_index      INT NOT NULL,
-                            correct_answer_id UUID  -- FK to answers, set after insert
+                           id                UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+                           quiz_id           UUID REFERENCES quizzes(id),
+                           type_id     		int4 REFERENCES answer_types(id) NOT NULL,
+                           kanji             TEXT NOT NULL,
+                           correct_answer_id UUID  -- FK to answers, set after insert
 );
 
 CREATE TABLE answers (
-                             id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                             question_id UUID REFERENCES questions(id),
-                             text        TEXT NOT NULL  -- reading or meaning
+                         id          UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+                         question_id UUID REFERENCES questions(id) NOT NULL,
+                         text        TEXT NOT NULL
 );
 
-CREATE TABLE decoy_words (
-                             id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                             quiz_id UUID REFERENCES quizzes(id),
-                             text    TEXT NOT NULL
+CREATE TABLE users (
+                       id        	UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+                       name 			TEXT NOT NULL
 );
+
+CREATE UNIQUE INDEX idx_users_name ON users (lower(name));
 
 CREATE TABLE participants (
-                              id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                              quiz_id  UUID REFERENCES quizzes(id),
-                              username TEXT NOT NULL,
-                              token    TEXT UNIQUE NOT NULL,  -- session token from QR scan
-                              score    INT DEFAULT 0
+                              id        	UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+                              user_id  		UUID REFERENCES users(id) NOT NULL, -- create new user if name wasn't found
+                              session_id  	UUID REFERENCES quiz_sessions(id) NOT NULL,
+                              token       	UUID DEFAULT gen_random_uuid() NOT NULL,  -- session token from QR scan
+                              score    		INT DEFAULT 0 CHECK (score >= 0)
 );
+
+CREATE UNIQUE INDEX idx_participants_user_id ON participants (user_id);
 
 CREATE TABLE submissions (
-                             id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                             participant_id   UUID REFERENCES participants(id),
-                             question_id      UUID REFERENCES questions(id),
-                             chosen_answer_id UUID,   -- NULL = timed out
-                             is_correct       BOOLEAN,
-                             time_taken_ms    INT
-);
-
--- Tracks which answer combo each participant saw (for deduplication)
-CREATE TABLE answer_assignments (
-                            participant_id UUID REFERENCES participants(id),
-                            question_id    UUID REFERENCES questions(id),
-                            answer_options UUID[],  -- array of 4 answer IDs shown
-                            PRIMARY KEY (participant_id, question_id)
+                             id             UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+                             participant_id UUID REFERENCES participants(id) NOT NULL,
+                             question_id    UUID REFERENCES questions(id) NOT NULL,
+                             answer_id      UUID REFERENCES answers(id),
+                             is_correct     BOOLEAN NOT NULL DEFAULT FALSE,
+                             time_taken_ms  INT DEFAULT 0 CHECK (time_taken_ms >= 0)
 );

@@ -1,0 +1,42 @@
+package pages
+
+templ AdminLogin(errorMsg string, returnURL string) {
+<html lang="en">
+<head>
+    <title>Admin Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f4; }
+        .login-container { width: 300px; margin: 100px auto; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .login-container h2 { text-align: center; }
+        label { display: block; margin-top: 10px; }
+        input[type="text"], input[type="password"] { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
+        button { width: 100%; margin-top: 15px; padding: 10px; background: #007bff; border: none; color: #fff; cursor: pointer; font-size: 16px; border-radius: 4px; }
+        button:hover { background: #0056b3; }
+        .error-wrapper { text-align: center; }
+        .error { display: inline-block; color: #b00020; margin-top: 10px; margin-bottom: 5px; font-size: 16px; }
+    </style>
+</head>
+<body>
+<div class="login-container">
+    if errorMsg != "" {
+    <div class="error-wrapper">
+        <div class="error">{ errorMsg }</div>
+    </div>
+    }
+
+    <form action="/admin" method="post">
+        <input type="hidden" name="returnURL" value="{ returnURL }"/>
+
+        <label for="password"></label>
+        <input type="password" id="password" name="password" placeholder="Enter password" required />
+
+        <button type="submit">Login</button>
+    </form>
+
+    <p style="text-align:center;margin-top:10px;">
+        <a href="/login">User login</a>
+    </p>
+</div>
+</body>
+</html>
+}
