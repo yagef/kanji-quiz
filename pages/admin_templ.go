@@ -52,7 +52,20 @@ func AdminLogin(errorMsg string, returnURL string) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<form action=\"/admin\" method=\"post\"><input type=\"hidden\" name=\"returnURL\" value=\"{ returnURL }\"> <label for=\"password\"></label> <input type=\"password\" id=\"password\" name=\"password\" placeholder=\"Enter password\" required> <button type=\"submit\">Login</button></form><p style=\"text-align:center;margin-top:10px;\"><a href=\"/login\">User login</a></p></div></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<form action=\"/admin\" method=\"post\"><input type=\"hidden\" name=\"returnURL\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var3 string
+		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(returnURL)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/admin.templ`, Line: 28, Col: 63}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\"> <label for=\"password\"></label> <input type=\"password\" id=\"password\" name=\"password\" placeholder=\"Enter password\" required> <button type=\"submit\">Login</button></form><p style=\"text-align:center;margin-top:10px;\"><a href=\"/login\">User login</a></p></div></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

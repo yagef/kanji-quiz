@@ -11,12 +11,12 @@ func main() {
 	r := gin.Default()
 	public := r.Group("/")
 	{
-		public.Any("/login", handlers.UserLoginHandler)
-		public.Any("/logout", func(c *gin.Context) {
+		public.POST("/login", handlers.UserLoginHandler)
+		public.GET("/login", handlers.UserLoginHandler)
+		public.POST("/admin", handlers.AdminLoginHandler)
+		public.GET("/admin", handlers.AdminLoginHandler)
+		public.GET("/logout", func(c *gin.Context) {
 			handlers.LogoutHandler(c.Writer, c.Request)
-		})
-		public.Any("/admin", func(c *gin.Context) {
-			handlers.AdminLoginHandler(c.Writer, c.Request)
 		})
 	}
 

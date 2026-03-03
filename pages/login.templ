@@ -25,7 +25,7 @@ templ UserLogin(errorMsg string, returnURL string) {
     }
 
     <form action="/login" method="post">
-        <input type="hidden" name="returnURL" value="{ returnURL }"/>
+        <input type="hidden" name="returnURL" value={ returnURL }/>
 
         <label for="login"></label>
         <input type="text" id="login" name="login" placeholder="Enter your name" required />

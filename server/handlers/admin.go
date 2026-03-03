@@ -7,11 +7,14 @@ import (
 	"strings"
 
 	"github.com/a-h/templ"
+	"github.com/gin-gonic/gin"
 )
 
-var adminPassword = os.Getenv("ADMIN_PASSWORD")
+var adminPassword = os.Getenv("ADMIN_PASS")
 
-func AdminLoginHandler(w http.ResponseWriter, r *http.Request) {
+func AdminLoginHandler(c *gin.Context) {
+	r := c.Request
+	w := c.Writer
 	switch r.Method {
 	case http.MethodPost:
 		adminPostHandler(w, r)
