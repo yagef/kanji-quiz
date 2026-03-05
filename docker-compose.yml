@@ -18,7 +18,7 @@ services:
       - seccomp:unconfined
     environment:
       # pgx-friendly connection string style
-      DATABASE_URL: "postgres://postgres:${PG_PASS}@db:5433/kanji?sslmode=disable"
+      DATABASE_URL: "postgres://postgres:${PG_PASS}@db:5432/kanji?sslmode=disable"
     depends_on:
       - db
     env_file:

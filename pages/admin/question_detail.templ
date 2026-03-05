@@ -1,0 +1,62 @@
+package admin
+
+import "kanji-quiz/server/model"
+
+templ QuestionDetail(quiz model.Quiz, question model.Question, answers []model.Answer) {
+@Layout("Question: " + question.Kanji) {
+<p>
+    <a href={ templ.SafeURL("/admin/quizzes/" + quiz.ID.String()) }>
+    ← Back to { quiz.Title }
+    </a>
+</p>
+
+<h1>{ question.Kanji }</h1>
+
+<section>
+    <h2>Answers</h2>
+    if len(answers) == 0 {
+    <p>No answers added yet.</p>
+    } else {
+    <ul>
+        for _, a := range answers {
+        <li>
+            { a.Text }
+
+            // 💡 Mentoring note: Because templ is just Go, we can directly
+            // check if the pointer is not nil and dereference it to compare UUIDs!
+            if question.CorrectAnswerID != nil && *question.CorrectAnswerID == a.ID {
+            ✅ <strong>correct</strong>
+            } else {
+            <form
+                    method="post"
+                    action={ templ.SafeURL("/admin/quizzes/" + quiz.ID.String() + "/questions/" + question.ID.String() + "/correct") }
+            style="display:inline"
+            >
+            <input type="hidden" name="answer_id" value={ a.ID.String() } />
+            <button type="submit">Set as correct</button>
+            </form>
+            }
+            <form method="post" action={ templ.SafeURL("/admin/quizzes/" + quiz.ID.String() + "/questions/" + question.ID.String() + "/answers/" + a.ID.String() + "/delete") } style="display:inline">
+            <button type="submit" style="color:red; margin-left:10px;">Delete</button>
+            </form>
+        </li>
+        }
+    </ul>
+    }
+</section>
+
+<section>
+    <h2>Add Answer</h2>
+    <form method="post" action={ templ.SafeURL("/admin/quizzes/" + quiz.ID.String() + "/questions/" + question.ID.String() + "/answers") }>
+    <input
+            type="text"
+            name="text"
+            placeholder="Answer text"
+            required
+            autofocus
+    />
+    <button type="submit">Add Answer</button>
+    </form>
+</section>
+}
+}

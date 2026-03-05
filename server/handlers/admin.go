@@ -69,9 +69,66 @@ func adminPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	nextURL := safeReturnURL(r.FormValue("returnURL"))
 	if nextURL == "" {
-		nextURL = "/dashboard"
+		nextURL = "/admin/dashboard"
 	}
 	http.Redirect(w, r, nextURL, http.StatusSeeOther)
+}
+
+func (h *AdminHandler) DeleteQuiz(c *gin.Context) {
+	quizID, ok := mustUUID(c, c.Param("quizID"))
+	if !ok {
+		return
+	}
+
+	if err := h.repo.DeleteQuiz(c.Request.Context(), quizID); err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	// Go back to quiz list
+	c.Redirect(http.StatusSeeOther, "/admin/dashboard")
+}
+
+func (h *AdminHandler) DeleteQuestion(c *gin.Context) {
+	quizID, ok := mustUUID(c, c.Param("quizID"))
+	if !ok {
+		return
+	}
+
+	questionID, ok := mustUUID(c, c.Param("questionID"))
+	if !ok {
+		return
+	}
+
+	if err := h.repo.DeleteQuestion(c.Request.Context(), quizID, questionID); err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	// Go back to quiz detail
+	c.Redirect(http.StatusSeeOther, "/admin/quizzes/"+quizID.String())
+}
+
+func (h *AdminHandler) DeleteAnswer(c *gin.Context) {
+	quizID, ok := mustUUID(c, c.Param("quizID"))
+	if !ok {
+		return
+	}
+
+	questionID, ok := mustUUID(c, c.Param("questionID"))
+	if !ok {
+		return
+	}
+
+	answerID, ok := mustUUID(c, c.Param("answerID"))
+	if !ok {
+		return
+	}
+
+	if err := h.repo.DeleteAnswer(c.Request.Context(), questionID, answerID); err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	// Go back to question detail
+	c.Redirect(http.StatusSeeOther, "/admin/quizzes/"+quizID.String()+"/questions/"+questionID.String())
 }
 
 func adminError(msg string) *templ.ComponentHandler {

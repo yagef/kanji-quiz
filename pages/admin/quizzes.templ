@@ -1,0 +1,45 @@
+package admin
+
+import "kanji-quiz/server/model"
+
+templ Quizzes(quizzes []model.Quiz) {
+@Layout("Quizzes") {
+<h1>Quizzes</h1>
+
+<section>
+    <h2>New Quiz</h2>
+    <form method="post" action="/admin/quizzes">
+        <label>
+            <input
+                    type="text"
+                    name="title"
+                    placeholder="Quiz title"
+                    required
+                    autofocus
+            />
+        </label>
+        <button type="submit">+ Create</button>
+    </form>
+</section>
+
+<section>
+    <h2>All Quizzes</h2>
+    if len(quizzes) == 0 {
+    <p>No quizzes yet. Create one above.</p>
+    } else {
+    <ul>
+        for _, q := range quizzes {
+        <li>
+            <a href={ templ.SafeURL("/admin/quizzes/" + q.ID.String()) }>
+            { q.Title }
+            </a>
+            <form method="post" action={ templ.SafeURL("/admin/quizzes/" + q.ID.String() + "/delete") } style="display:inline" onsubmit="return confirm('Delete this quiz and all its questions?');">
+                <button type="submit" style="color:red; margin-left:10px;">Delete</button>
+            </form>
+        </li>
+        }
+    </ul>
+    }
+</section>
+}
+}

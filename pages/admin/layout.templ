@@ -1,0 +1,19 @@
+package admin
+
+templ Layout(title string) {
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>{ title } | Kanji Quiz Admin</title>
+</head>
+<body>
+<nav>
+    <a href="/admin/dashboard">← All Quizzes</a>
+</nav>
+<main>
+    { children... }
+</main>
+</body>
+</html>
+}

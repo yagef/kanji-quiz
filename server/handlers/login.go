@@ -58,7 +58,7 @@ func userPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	nextURL := safeReturnURL(r.FormValue("returnURL"))
 	if nextURL == "" {
-		nextURL = "/history"
+		nextURL = "/user/history"
 	}
 	http.Redirect(w, r, nextURL, http.StatusSeeOther)
 }

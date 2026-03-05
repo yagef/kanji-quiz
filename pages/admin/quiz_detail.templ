@@ -1,0 +1,67 @@
+package admin
+
+import (
+"fmt"
+"kanji-quiz/server/model"
+)
+
+templ QuizDetail(quiz model.Quiz, questions []model.Question, answerTypes []model.AnswerType) {
+@Layout(quiz.Title) {
+<h1>{ quiz.Title }</h1>
+
+<!-- Add Question -->
+<section>
+    <h2>Add Question</h2>
+    <form method="post" action={ templ.SafeURL("/admin/quizzes/" + quiz.ID.String() + "/questions") }>
+    <input
+            type="text"
+            name="kanji"
+            placeholder="Value"
+            required
+            autofocus
+    />
+    <select name="type_id">
+        for _, t := range answerTypes {
+        <option value={ fmt.Sprint(t.ID) }>{ t.Text }</option>
+        }
+    </select>
+    <button type="submit">Add Question</button>
+    </form>
+</section>
+
+<!-- Question List -->
+<section>
+    <h2>Questions</h2>
+    if len(questions) == 0 {
+    <p>No questions yet. Add one above.</p>
+    } else {
+    <ul>
+        for _, q := range questions {
+        <li>
+            <a href={ templ.SafeURL("/admin/quizzes/" + quiz.ID.String() + "/questions/" + q.ID.String()) }>
+            { q.Kanji }
+            </a>
+            if q.CorrectAnswerID != nil {
+            <span>✅</span>
+            } else {
+            <span style="color: red;">⚠ no correct answer set</span>
+            }
+            <form method="post" action={ templ.SafeURL("/admin/quizzes/" + quiz.ID.String() + "/questions/" + q.ID.String() + "/delete") } style="display:inline" onsubmit="return confirm('Delete this question?');">
+                <button type="submit" style="color:red; margin-left:10px;">Delete</button>
+            </form>
+        </li>
+        }
+    </ul>
+    }
+</section>
+
+<hr/>
+
+<!-- Start Session -->
+<section>
+    <form method="post" action={ templ.SafeURL("/admin/quizzes/" + quiz.ID.String() + "/sessions") }>
+    <button type="submit">🚀 Start New Quiz Session</button>
+    </form>
+</section>
+}
+}
