@@ -17,6 +17,7 @@ type Question struct {
 	ID              uuid.UUID
 	QuizID          uuid.UUID
 	TypeID          int
+	TypeText        string
 	Kanji           string
 	CorrectAnswerID *uuid.UUID // nullable — set after answers are added
 }

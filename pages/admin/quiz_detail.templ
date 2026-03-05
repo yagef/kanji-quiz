@@ -41,6 +41,7 @@ templ QuizDetail(quiz model.Quiz, questions []model.Question, answerTypes []mode
             <a href={ templ.SafeURL("/admin/quizzes/" + quiz.ID.String() + "/questions/" + q.ID.String()) }>
             { q.Kanji }
             </a>
+            <span>{ q.TypeText }</span>
             if q.CorrectAnswerID != nil {
             <span>✅</span>
             } else {

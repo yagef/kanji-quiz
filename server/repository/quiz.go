@@ -63,7 +63,10 @@ func (r *QuizRepo) ListAnswerTypes(ctx context.Context) ([]model.AnswerType, err
 
 func (r *QuizRepo) ListQuestions(ctx context.Context, quizID uuid.UUID) ([]model.Question, error) {
 	rows, err := r.db.Query(ctx,
-		`SELECT id, quiz_id, type_id, kanji, correct_answer_id FROM questions WHERE quiz_id = $1`, quizID,
+		`SELECT q.id, q.quiz_id, q.type_id, q.kanji, q.correct_answer_id, a.text
+				FROM questions AS q
+				INNER JOIN public.answer_types a on q.type_id = a.id
+                WHERE q.quiz_id = $1`, quizID,
 	)
 	if err != nil {
 		return nil, err
@@ -72,7 +75,7 @@ func (r *QuizRepo) ListQuestions(ctx context.Context, quizID uuid.UUID) ([]model
 	var out []model.Question
 	for rows.Next() {
 		var q model.Question
-		if err := rows.Scan(&q.ID, &q.QuizID, &q.TypeID, &q.Kanji, &q.CorrectAnswerID); err != nil {
+		if err := rows.Scan(&q.ID, &q.QuizID, &q.TypeID, &q.Kanji, &q.CorrectAnswerID, &q.TypeText); err != nil {
 			return nil, err
 		}
 		out = append(out, q)
@@ -94,8 +97,11 @@ func (r *QuizRepo) CreateQuestion(ctx context.Context, quizID uuid.UUID, typeID 
 func (r *QuizRepo) GetQuestion(ctx context.Context, id uuid.UUID) (model.Question, error) {
 	var q model.Question
 	err := r.db.QueryRow(ctx,
-		`SELECT id, quiz_id, type_id, kanji, correct_answer_id FROM questions WHERE id = $1`, id,
-	).Scan(&q.ID, &q.QuizID, &q.TypeID, &q.Kanji, &q.CorrectAnswerID)
+		`SELECT q.id, q.quiz_id, q.type_id, q.kanji, q.correct_answer_id, a.text
+			FROM questions AS q
+			INNER JOIN answer_types a on q.type_id = a.id
+			WHERE q.id = $1`, id,
+	).Scan(&q.ID, &q.QuizID, &q.TypeID, &q.Kanji, &q.CorrectAnswerID, &q.TypeText)
 	return q, err
 }
 
