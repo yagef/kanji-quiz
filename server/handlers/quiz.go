@@ -77,8 +77,13 @@ func (h *AdminHandler) QuizDetail(c *gin.Context) {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
+	sessions, err := h.repo.ListSessions(context, quizID)
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
 
-	err = admin.QuizDetail(quiz, questions, answerTypes).Render(context, c.Writer)
+	err = admin.QuizDetail(quiz, questions, answerTypes, sessions).Render(context, c.Writer)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
@@ -95,7 +100,7 @@ func (h *AdminHandler) StartSession(c *gin.Context) {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
-	c.Redirect(http.StatusSeeOther, "/admin/sessions/"+s.Token.String())
+	c.Redirect(http.StatusSeeOther, "/admin/sessions/"+s.ID.String())
 }
 
 func (h *AdminHandler) CreateQuestion(c *gin.Context) {

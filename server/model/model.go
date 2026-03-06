@@ -1,6 +1,10 @@
 package model
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type Quiz struct {
 	ID    uuid.UUID
@@ -29,7 +33,15 @@ type Answer struct {
 }
 
 type QuizSession struct {
+	ID        uuid.UUID
+	QuizID    uuid.UUID
+	StartedAt *time.Time
+	EndedAt   *time.Time
+}
+
+type Participant struct {
 	ID     uuid.UUID
-	QuizID uuid.UUID
-	Token  uuid.UUID
+	UserID uuid.UUID
+	Name   string // Joined from users table
+	Score  int
 }

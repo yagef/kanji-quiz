@@ -5,7 +5,7 @@ import (
 "kanji-quiz/server/model"
 )
 
-templ QuizDetail(quiz model.Quiz, questions []model.Question, answerTypes []model.AnswerType) {
+templ QuizDetail(quiz model.Quiz, questions []model.Question, answerTypes []model.AnswerType, sessions []model.QuizSession) {
 @Layout(quiz.Title) {
 <h1>{ quiz.Title }</h1>
 
@@ -63,6 +63,25 @@ templ QuizDetail(quiz model.Quiz, questions []model.Question, answerTypes []mode
     <form method="post" action={ templ.SafeURL("/admin/quizzes/" + quiz.ID.String() + "/sessions") }>
     <button type="submit">🚀 Start New Quiz Session</button>
     </form>
+
+    if len(sessions) == 0 {
+    <p>No sessions run yet.</p>
+    } else {
+    <ul>
+        for _, s := range sessions {
+        <li>
+            <a href={ templ.SafeURL("/admin/sessions/" + s.ID.String()) }>
+            Session { s.StartedAt.Format("Jan 02, 15:04") }
+            </a>
+            if s.EndedAt == nil {
+            <span style="color: green; font-weight: bold; margin-left: 10px;">[🟢 Active]</span>
+            } else {
+            <span style="color: gray; margin-left: 10px;">[🔴 Ended]</span>
+            }
+        </li>
+        }
+    </ul>
+    }
 </section>
 }
 }

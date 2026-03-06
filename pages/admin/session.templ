@@ -1,0 +1,22 @@
+package admin
+
+import "kanji-quiz/server/model"
+
+templ QuizSessionPage(quiz model.Quiz, sessionID string, joinURL string) {
+@Layout(quiz.Title + "session") {
+<p>
+    <a href={ templ.SafeURL("/admin/quizzes/" + quiz.ID.String()) }>
+    ← Back to { quiz.Title }
+    </a>
+</p>
+<section>
+    <h1>Scan this QR code to join:</h1>
+
+    <img src={"/admin/qr?session=" + sessionID} alt="QR code" />
+
+    <p>Or open
+        <a href={ joinURL }>this link</a>
+    </p>
+</section>
+}
+}
