@@ -38,7 +38,7 @@ func main() {
 		admin.POST("/quizzes", ah.CreateQuiz)
 		admin.GET("/quizzes/:quizID", ah.QuizDetail)
 		admin.POST("/quizzes/:quizID/questions", ah.CreateQuestion)
-		admin.POST("/quizzes/:quizID/sessions", ah.StartSession)
+		admin.POST("/quizzes/:quizID/sessions", ah.CreateSession)
 		admin.GET("/quizzes/:quizID/questions/:questionID", ah.QuestionDetail)
 		admin.POST("/quizzes/:quizID/questions/:questionID/answers", ah.AddAnswer)
 		admin.POST("/quizzes/:quizID/questions/:questionID/correct", ah.SetCorrectAnswer)
@@ -49,11 +49,15 @@ func main() {
 		admin.POST("/quizzes/:quizID/delete", ah.DeleteQuiz)
 		admin.POST("/quizzes/:quizID/questions/:questionID/delete", ah.DeleteQuestion)
 		admin.POST("/quizzes/:quizID/questions/:questionID/answers/:answerID/delete", ah.DeleteAnswer)
+		admin.POST("/quizzes/:quizID/sessions/:sessionID/delete", ah.DeleteSession)
 	}
 
-	/*user := r.Group("/user", handlers.UserAuthMiddleware)
+	uh := handlers.NewUser(quizRepo)
+	user := r.Group("/user", handlers.UserAuthMiddleware)
 	{
-	}*/
+		user.GET("/sessions/:sessionID", uh.JoinSession)
+		user.GET("/participants/play", uh.ParticipantPage)
+	}
 	r.NoRoute(func(c *gin.Context) {
 		handlers.Handle404().ServeHTTP(c.Writer, c.Request)
 	})

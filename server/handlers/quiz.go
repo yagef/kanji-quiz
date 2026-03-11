@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"kanji-quiz/pages/admin"
+	"kanji-quiz/server/live"
 	"kanji-quiz/server/repository"
 	"net/http"
 
@@ -12,6 +13,7 @@ import (
 
 type AdminHandler struct {
 	repo *repository.QuizRepo
+	live *live.Manager
 }
 
 func NewAdmin(repo *repository.QuizRepo) *AdminHandler {
@@ -90,12 +92,12 @@ func (h *AdminHandler) QuizDetail(c *gin.Context) {
 	}
 }
 
-func (h *AdminHandler) StartSession(c *gin.Context) {
+func (h *AdminHandler) CreateSession(c *gin.Context) {
 	quizID, ok := mustUUID(c, c.Param("quizID"))
 	if !ok {
 		return
 	}
-	s, err := h.repo.StartSession(c.Request.Context(), quizID)
+	s, err := h.repo.CreateSession(c.Request.Context(), quizID)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return

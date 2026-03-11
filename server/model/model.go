@@ -40,8 +40,14 @@ type QuizSession struct {
 }
 
 type Participant struct {
-	ID     uuid.UUID
-	UserID uuid.UUID
-	Name   string // Joined from users table
-	Score  int
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	Name      string // Joined from users table
+	Score     int
+	SessionID uuid.UUID
+}
+
+type User struct {
+	ID   uuid.UUID
+	Name string
 }

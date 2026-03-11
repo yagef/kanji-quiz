@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"fmt"
 	"kanji-quiz/server/model"
 
 	"github.com/google/uuid"
@@ -42,167 +41,6 @@ func (r *QuizRepo) GetQuiz(ctx context.Context, id uuid.UUID) (model.Quiz, error
 	var q model.Quiz
 	err := r.db.QueryRow(ctx, `SELECT id, title FROM quizzes WHERE id = $1`, id).Scan(&q.ID, &q.Title)
 	return q, err
-}
-
-func (r *QuizRepo) ListAnswerTypes(ctx context.Context) ([]model.AnswerType, error) {
-	rows, err := r.db.Query(ctx, `SELECT id, text, title FROM answer_types`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []model.AnswerType
-	for rows.Next() {
-		var t model.AnswerType
-		if err := rows.Scan(&t.ID, &t.Text, &t.Title); err != nil {
-			return nil, err
-		}
-		out = append(out, t)
-	}
-	return out, nil
-}
-
-func (r *QuizRepo) ListQuestions(ctx context.Context, quizID uuid.UUID) ([]model.Question, error) {
-	rows, err := r.db.Query(ctx,
-		`SELECT q.id, q.quiz_id, q.type_id, q.kanji, q.correct_answer_id, a.text
-				FROM questions AS q
-				INNER JOIN public.answer_types a on q.type_id = a.id
-                WHERE q.quiz_id = $1`, quizID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []model.Question
-	for rows.Next() {
-		var q model.Question
-		if err := rows.Scan(&q.ID, &q.QuizID, &q.TypeID, &q.Kanji, &q.CorrectAnswerID, &q.TypeText); err != nil {
-			return nil, err
-		}
-		out = append(out, q)
-	}
-	return out, nil
-}
-
-func (r *QuizRepo) CreateQuestion(ctx context.Context, quizID uuid.UUID, typeID int, kanji string) (model.Question, error) {
-	var q model.Question
-	// correct_answer_id is intentionally omitted — set later via SetCorrectAnswer
-	err := r.db.QueryRow(ctx,
-		`INSERT INTO questions (quiz_id, type_id, kanji) VALUES ($1, $2, $3)
-         RETURNING id, quiz_id, type_id, kanji, correct_answer_id`,
-		quizID, typeID, kanji,
-	).Scan(&q.ID, &q.QuizID, &q.TypeID, &q.Kanji, &q.CorrectAnswerID)
-	return q, err
-}
-
-func (r *QuizRepo) GetQuestion(ctx context.Context, id uuid.UUID) (model.Question, error) {
-	var q model.Question
-	err := r.db.QueryRow(ctx,
-		`SELECT q.id, q.quiz_id, q.type_id, q.kanji, q.correct_answer_id, a.text
-			FROM questions AS q
-			INNER JOIN answer_types a on q.type_id = a.id
-			WHERE q.id = $1`, id,
-	).Scan(&q.ID, &q.QuizID, &q.TypeID, &q.Kanji, &q.CorrectAnswerID, &q.TypeText)
-	return q, err
-}
-
-func (r *QuizRepo) ListAnswers(ctx context.Context, questionID uuid.UUID) ([]model.Answer, error) {
-	rows, err := r.db.Query(ctx,
-		`SELECT id, question_id, text FROM answers WHERE question_id = $1`, questionID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []model.Answer
-	for rows.Next() {
-		var a model.Answer
-		if err := rows.Scan(&a.ID, &a.QuestionID, &a.Text); err != nil {
-			return nil, err
-		}
-		out = append(out, a)
-	}
-	return out, nil
-}
-
-func (r *QuizRepo) AddAnswer(ctx context.Context, questionID uuid.UUID, text string) (model.Answer, error) {
-	var a model.Answer
-	err := r.db.QueryRow(ctx,
-		`INSERT INTO answers (question_id, text) VALUES ($1, $2) RETURNING id, question_id, text`,
-		questionID, text,
-	).Scan(&a.ID, &a.QuestionID, &a.Text)
-	return a, err
-}
-
-// SetCorrectAnswer updates correct_answer_id; the answer must belong to the question
-func (r *QuizRepo) SetCorrectAnswer(ctx context.Context, questionID, answerID uuid.UUID) error {
-	tag, err := r.db.Exec(ctx,
-		`UPDATE questions SET correct_answer_id = $1
-         WHERE id = $2
-           AND EXISTS (SELECT 1 FROM answers WHERE id = $1 AND question_id = $2)`,
-		answerID, questionID,
-	)
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("answer %s does not belong to question %s", answerID, questionID)
-	}
-	return nil
-}
-
-func (r *QuizRepo) StartSession(ctx context.Context, quizID uuid.UUID) (model.QuizSession, error) {
-	var s model.QuizSession
-	err := r.db.QueryRow(ctx,
-		`INSERT INTO quiz_sessions (quiz_id) VALUES ($1) RETURNING id, quiz_id, started_at, ended_at`, quizID,
-	).Scan(&s.ID, &s.QuizID, &s.StartedAt, &s.EndedAt)
-	return s, err
-}
-func (r *QuizRepo) DeleteAnswer(ctx context.Context, questionID, answerID uuid.UUID) error {
-	tx, err := r.db.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-
-	_, err = tx.Exec(ctx, `UPDATE questions SET correct_answer_id = NULL WHERE id = $1 AND correct_answer_id = $2`, questionID, answerID)
-	if err != nil {
-		return err
-	}
-
-	_, err = tx.Exec(ctx, `DELETE FROM answers WHERE id = $1 AND question_id = $2`, answerID, questionID)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit(ctx)
-}
-
-func (r *QuizRepo) DeleteQuestion(ctx context.Context, quizID, questionID uuid.UUID) error {
-	tx, err := r.db.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-
-	// 1. Break the circular dependency
-	_, err = tx.Exec(ctx, `UPDATE questions SET correct_answer_id = NULL WHERE id = $1`, questionID)
-	if err != nil {
-		return err
-	}
-
-	// 2. Delete all answers for this question
-	_, err = tx.Exec(ctx, `DELETE FROM answers WHERE question_id = $1`, questionID)
-	if err != nil {
-		return err
-	}
-
-	// 3. Delete the question itself
-	_, err = tx.Exec(ctx, `DELETE FROM questions WHERE id = $1 AND quiz_id = $2`, questionID, quizID)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit(ctx)
 }
 
 func (r *QuizRepo) DeleteQuiz(ctx context.Context, quizID uuid.UUID) error {
@@ -245,69 +83,50 @@ func (r *QuizRepo) DeleteQuiz(ctx context.Context, quizID uuid.UUID) error {
 	return tx.Commit(ctx)
 }
 
-func (r *QuizRepo) GetSessionQuiz(ctx context.Context, sessionId uuid.UUID) (model.Quiz, error) {
-	var q model.Quiz
-	err := r.db.QueryRow(ctx, `SELECT q.id, q.title
-		FROM quizzes AS q
-		INNER JOIN quiz_sessions AS s ON s.quiz_id = q.id
-		WHERE s.id = $1`, sessionId).Scan(&q.ID, &q.Title)
-	return q, err
-}
-
-// EndSession Mark a session as ended
-func (r *QuizRepo) EndSession(ctx context.Context, sessionID uuid.UUID) error {
-	_, err := r.db.Exec(ctx, `UPDATE quiz_sessions SET ended_at = NOW() WHERE id = $1`, sessionID)
-	return err
-}
-
-// ListSessions List sessions for a quiz
-func (r *QuizRepo) ListSessions(ctx context.Context, quizID uuid.UUID) ([]model.QuizSession, error) {
-	rows, err := r.db.Query(ctx, `SELECT id, quiz_id, started_at, ended_at FROM quiz_sessions WHERE quiz_id = $1 ORDER BY started_at DESC`, quizID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var out []model.QuizSession
-	for rows.Next() {
-		var s model.QuizSession
-		if err := rows.Scan(&s.ID, &s.QuizID, &s.StartedAt, &s.EndedAt); err != nil {
-			return nil, err
-		}
-		out = append(out, s)
-	}
-	return out, nil
-}
-
-// GetSession Get single session
-func (r *QuizRepo) GetSession(ctx context.Context, sessionID uuid.UUID) (model.QuizSession, error) {
-	var s model.QuizSession
-	err := r.db.QueryRow(ctx, `SELECT id, quiz_id, started_at, ended_at FROM quiz_sessions WHERE id = $1`, sessionID).
-		Scan(&s.ID, &s.QuizID, &s.StartedAt, &s.EndedAt)
-	return s, err
-}
-
-// ListParticipants List participants for a session
-func (r *QuizRepo) ListParticipants(ctx context.Context, sessionID uuid.UUID) ([]model.Participant, error) {
+func (r *QuizRepo) GetQuestionsWithAnswers(ctx context.Context, quizID uuid.UUID) ([]model.QuestionWithAnswers, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT p.id, p.user_id, u.name, p.score 
-		FROM participants p
-		JOIN users u ON p.user_id = u.id
-		WHERE p.session_id = $1
-		ORDER BY p.score DESC
-	`, sessionID)
+		SELECT q.id, q.quiz_id, q.type_id, q.kanji, q.correct_answer_id,
+		       a.id, a.question_id, a.text
+		FROM questions q
+		JOIN answers a ON a.question_id = q.id
+		WHERE q.quiz_id = $1
+		ORDER BY q.id
+	`, quizID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var out []model.Participant
+	m := map[uuid.UUID]model.QuestionWithAnswers{}
+	var order []uuid.UUID
+
 	for rows.Next() {
-		var p model.Participant
-		if err := rows.Scan(&p.ID, &p.UserID, &p.Name, &p.Score); err != nil {
+		var q model.Question
+		var a model.Answer
+		if err := rows.Scan(&q.ID, &q.QuizID, &q.TypeID, &q.Kanji, &q.CorrectAnswerID,
+			&a.ID, &a.QuestionID, &a.Text); err != nil {
 			return nil, err
 		}
-		out = append(out, p)
+		qwa, ok := m[q.ID]
+		if !ok {
+			qwa = model.QuestionWithAnswers{Question: q}
+			order = append(order, q.ID)
+		}
+		qwa.Answers = append(qwa.Answers, a)
+		m[q.ID] = qwa
+	}
+
+	out := make([]model.QuestionWithAnswers, 0, len(order))
+	for _, id := range order {
+		out = append(out, m[id])
 	}
 	return out, nil
+}
+
+func (r *QuizRepo) CreateSubmission(ctx context.Context, participantID, questionID, answerID uuid.UUID, correct bool, time int) error {
+	_, err := r.db.Exec(ctx, `
+		INSERT INTO submissions (participant_id, question_id, answer_id, is_correct, time_taken_ms)
+		VALUES ($1, $2, $3, $4, $5)
+	`, participantID, questionID, answerID, correct, time)
+	return err
 }

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/a-h/templ"
+	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
 )
 
@@ -35,6 +36,14 @@ func Handle404() *templ.ComponentHandler {
 	return HandleError(http.StatusNotFound,
 		"Page not found",
 		"The page you are looking for does not exist, has been moved, or the URL is incorrect.")
+}
+
+func render(c *gin.Context, code int, component templ.Component) {
+	c.Status(code)
+	err := component.Render(c, c.Writer)
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+	}
 }
 
 func HandleErr(code int, msg string, err error) *templ.ComponentHandler {

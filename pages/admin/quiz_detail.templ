@@ -78,6 +78,11 @@ templ QuizDetail(quiz model.Quiz, questions []model.Question, answerTypes []mode
             } else {
             <span style="color: gray; margin-left: 10px;">[🔴 Ended]</span>
             }
+            <form method="POST" action={ templ.SafeURL("/admin/quizzes/" + quiz.ID.String() + "/sessions/" + s.ID.String() + "/delete")}>
+            <button type="submit" onclick="return confirm('Delete this session?');">
+                Delete session
+            </button>
+            </form>
         </li>
         }
     </ul>
