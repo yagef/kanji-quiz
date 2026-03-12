@@ -4,6 +4,7 @@ import (
 	"context"
 	"kanji-quiz/server/handlers"
 	"kanji-quiz/server/repository"
+	"kanji-quiz/server/ws"
 	"log"
 	"os"
 
@@ -31,7 +32,9 @@ func main() {
 	}
 
 	quizRepo := repository.New(db)
-	ah := handlers.NewAdmin(quizRepo)
+	manager := ws.NewManager()
+	engine := ws.NewEngine(quizRepo, manager)
+	ah := handlers.NewAdmin(quizRepo, manager, engine)
 	admin := r.Group("/admin", handlers.AdminAuthMiddleware)
 	{
 		admin.GET("/dashboard", ah.ListQuizzes)
@@ -45,6 +48,9 @@ func main() {
 		admin.GET("/sessions/:sessionID", ah.SessionDetail)
 		admin.POST("/sessions/:sessionID/end", ah.EndSession)
 		admin.GET("/qr", ah.QR)
+		// Quiz flow control
+		admin.POST("/sessions/:sessionID/init", ah.InitQuiz)
+		admin.POST("/sessions/:sessionID/next", ah.NextQuestion)
 		//deletion
 		admin.POST("/quizzes/:quizID/delete", ah.DeleteQuiz)
 		admin.POST("/quizzes/:quizID/questions/:questionID/delete", ah.DeleteQuestion)
@@ -57,6 +63,17 @@ func main() {
 	{
 		user.GET("/sessions/:sessionID", uh.JoinSession)
 		user.GET("/participants/play", uh.ParticipantPage)
+	}
+
+	wsH := handlers.NewWSHandler(quizRepo, manager, engine)
+	sockets := r.Group("/ws", func(c *gin.Context) {
+		// Example: log WS connections
+		log.Printf("ws connect: %s %s", c.ClientIP(), c.Request.URL.Path)
+		c.Next()
+		log.Printf("ws disconnect: %s %s", c.ClientIP(), c.Request.URL.Path)
+	})
+	{
+		sockets.GET("/participants/:participantID", wsH.ParticipantWS)
 	}
 	r.NoRoute(func(c *gin.Context) {
 		handlers.Handle404().ServeHTTP(c.Writer, c.Request)

@@ -4,8 +4,6 @@ import (
 	"context"
 	"kanji-quiz/pages"
 	"kanji-quiz/pages/admin"
-	"kanji-quiz/server/model"
-	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
@@ -13,8 +11,7 @@ import (
 
 	"github.com/a-h/templ"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	qrcode "github.com/skip2/go-qrcode"
+	"github.com/skip2/go-qrcode"
 )
 
 var adminPassword = os.Getenv("ADMIN_PASS")
@@ -202,7 +199,8 @@ func (h *AdminHandler) SessionDetail(c *gin.Context) {
 
 	joinURL := baseURL + "/user/sessions/" + sessionID.String()
 
-	if err := admin.SessionDetail(joinURL, quiz, session, participants).
+	phase := h.engine.GetPhase(sessionID)
+	if err := admin.SessionDetail(joinURL, quiz, session, participants, phase).
 		Render(context.Background(), c.Writer); err != nil {
 		c.Status(http.StatusInternalServerError)
 		return
@@ -244,60 +242,54 @@ func (h *AdminHandler) DeleteSession(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, "/admin/quizzes/"+quizID.String())
 }
 
-func (h *AdminHandler) StartSession(c *gin.Context) {
-	quizID, ok := mustUUID(c, c.Param("quizID"))
+// InitQuiz When admin sets time and presses Start in /admin/sessions/:sessionID
+func (h *AdminHandler) InitQuiz(c *gin.Context) {
+	sessionID, ok := mustUUID(c, c.Param("sessionID"))
 	if !ok {
 		return
 	}
 
-	duration, _ := strconv.Atoi(c.PostForm("duration_seconds"))
-	if duration <= 0 {
-		duration = 10 // sane default
+	// Parse form values with safe defaults
+	answerSeconds, err := strconv.Atoi(c.PostForm("answer_seconds"))
+	if err != nil || answerSeconds < 5 {
+		answerSeconds = 15 // sane default
+	}
+	countdownSeconds, err := strconv.Atoi(c.PostForm("countdown_seconds"))
+	if err != nil || countdownSeconds < 3 {
+		countdownSeconds = 5
 	}
 
-	session, err := h.repo.CreateSession(c.Request.Context(), quizID)
+	session, err := h.repo.GetSession(c.Request.Context(), sessionID)
 	if err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+		c.String(http.StatusNotFound, "session not found")
 		return
 	}
 
-	questionsWithAnswers, err := h.repo.GetQuestionsWithAnswers(c.Request.Context(), quizID)
-	if err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+	if err := h.engine.InitSession(c.Request.Context(), sessionID, session.QuizID, answerSeconds, countdownSeconds); err != nil {
+		c.String(http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// Build shuffled question list + 4 answers each
-	rand.Shuffle(len(questionsWithAnswers), func(i, j int) {
-		questionsWithAnswers[i], questionsWithAnswers[j] = questionsWithAnswers[j], questionsWithAnswers[i]
-	})
-
-	var sessQuestions []model.SessionQuestion
-	for _, qwa := range questionsWithAnswers {
-		if len(qwa.Answers) < 4 {
-			continue // or handle differently
-		}
-		// pick 4 random answers; simple approach
-		idx := rand.Perm(len(qwa.Answers))[:4]
-		ansIDs := make([]uuid.UUID, 0, 4)
-		for _, i := range idx {
-			ansIDs = append(ansIDs, qwa.Answers[i].ID)
-		}
-		sessQuestions = append(sessQuestions, model.SessionQuestion{
-			QuestionID: qwa.Question.ID,
-			AnswerIDs:  ansIDs,
-		})
+	if err := h.engine.StartQuiz(c.Request.Context(), sessionID); err != nil {
+		c.String(http.StatusBadRequest, err.Error())
+		return
 	}
 
-	h.live.Set(&model.SessionState{
-		SessionID:        session.ID,
-		QuizID:           quizID,
-		CurrentIndex:     0,
-		Questions:        sessQuestions,
-		QuestionDuration: duration,
-	})
+	c.Redirect(http.StatusSeeOther, "/admin/sessions/"+sessionID.String())
+}
 
-	c.Redirect(http.StatusSeeOther, "/admin/sessions/"+session.ID.String())
+// "Next question" button
+func (h *AdminHandler) NextQuestion(c *gin.Context) {
+	sessionID, ok := mustUUID(c, c.Param("sessionID"))
+	if !ok {
+		return
+	}
+
+	if err := h.engine.NextQuestion(c.Request.Context(), sessionID); err != nil {
+		c.String(http.StatusBadRequest, err.Error())
+		return
+	}
+	c.Redirect(http.StatusSeeOther, "/admin/sessions/"+sessionID.String())
 }
 
 func adminError(msg string) *templ.ComponentHandler {

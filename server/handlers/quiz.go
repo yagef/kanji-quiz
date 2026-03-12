@@ -3,8 +3,8 @@ package handlers
 import (
 	"fmt"
 	"kanji-quiz/pages/admin"
-	"kanji-quiz/server/live"
 	"kanji-quiz/server/repository"
+	"kanji-quiz/server/ws"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -12,12 +12,13 @@ import (
 )
 
 type AdminHandler struct {
-	repo *repository.QuizRepo
-	live *live.Manager
+	repo   *repository.QuizRepo
+	live   *ws.Manager
+	engine *ws.Engine
 }
 
-func NewAdmin(repo *repository.QuizRepo) *AdminHandler {
-	return &AdminHandler{repo: repo}
+func NewAdmin(repo *repository.QuizRepo, live *ws.Manager, engine *ws.Engine) *AdminHandler {
+	return &AdminHandler{repo: repo, live: live, engine: engine}
 }
 
 func (h *AdminHandler) CreateQuiz(c *gin.Context) {

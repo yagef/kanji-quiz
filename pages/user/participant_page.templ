@@ -51,13 +51,12 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
     const participantID = "{ p.ID.String() }";
     const sessionID = "{ session.ID.String() }";
 
-    // For now: simple stub; later you'll replace this with a WebSocket:
-    // const ws = new WebSocket(`wss://${location.host}/user/ws/participants/${participantID}`);
-
     function renderQuestion(payload) {
         document.getElementById("status").innerText = payload.phase;
-        document.getElementById("question-text").innerText = payload.questionText || "";
+        document.getElementById("question-text").innerText = payload.question_text || "";
 
+        const isAnswering = payload.phase === "answering";
+        const canClick    = isAnswering && !payload.has_answered_current;
         const answersDiv = document.getElementById("answers");
         answersDiv.innerHTML = "";
 
@@ -65,12 +64,30 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
             const btn = document.createElement("button");
             btn.className = "answer-btn";
             btn.textContent = a.text;
-            btn.disabled = !payload.canAnswer;
-            btn.onclick = () => submitAnswer(a.id);
+            btn.disabled    = !canClick;
+            if (payload.has_answered_current) {
+                btn.title = "You already answered this question";
+            }
+            btn.onclick = () => submitAnswer(a.id, payload.question_id);
+            btn.onclick = () => {
+                if (!canClick) return;
+
+                // Disable all buttons immediately for instant feedback,
+                // without waiting for the server round-trip.
+                disableAllAnswers();
+                submitAnswer(a.id, payload.question_id);
+            };
             answersDiv.appendChild(btn);
         });
 
-        updateCountdown(payload.remainingSeconds, payload.totalSeconds);
+        updateCountdown(payload.remaining_seconds, payload.total_seconds);
+    }
+
+    function disableAllAnswers() {
+        document.querySelectorAll(".answer-btn").forEach(btn => {
+            btn.disabled = true;
+            btn.title    = "Answer submitted";
+        });
     }
 
     function updateCountdown(remaining, total) {
@@ -86,16 +103,30 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
         document.getElementById("progress-bar-inner").style.width = pct + "%";
     }
 
-    function submitAnswer(answerID) {
-        // placeholder: you will POST or send via WS from here
-        console.log("submitAnswer", answerID);
-    }
+    const ws = new WebSocket(`ws://${location.host}/user/ws/participants/${participantID}`);
 
-    // Later: handle incoming WS messages:
-    // ws.onmessage = (event) => {
-    //   const payload = JSON.parse(event.data);
-    //   renderQuestion(payload);
-    // };
+    ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        switch (msg.type) {
+            case "state_sync":
+                renderQuestion(msg.payload);
+                break;
+            case "error":
+                alert(msg.payload.message);
+                break;
+        }
+    };
+
+    function submitAnswer(answerID, questionID) {
+        const payload = {
+            question_id: questionID,
+            answer_id: answerID,
+        };
+        ws.send(JSON.stringify({
+            type: "answer",
+            payload: payload,
+        }));
+    }
 </script>
 </body>
 </html>

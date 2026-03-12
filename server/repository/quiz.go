@@ -2,9 +2,11 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"kanji-quiz/server/model"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -129,4 +131,80 @@ func (r *QuizRepo) CreateSubmission(ctx context.Context, participantID, question
 		VALUES ($1, $2, $3, $4, $5)
 	`, participantID, questionID, answerID, correct, time)
 	return err
+}
+
+// IsAnswerCorrect checks if given answer is the correct one for the question.
+func (r *QuizRepo) IsAnswerCorrect(ctx context.Context, questionID, answerID uuid.UUID) (bool, error) {
+	var count int
+	err := r.db.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM questions q
+		WHERE q.id = $1
+		  AND q.correct_answer_id = $2
+	`, questionID, answerID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count == 1, nil
+}
+
+// InsertSubmissionAndUpdateScore inserts into submissions and updates participant score.
+func (r *QuizRepo) InsertSubmissionAndUpdateScore(
+	ctx context.Context,
+	participantID, questionID, answerID uuid.UUID,
+	isCorrect bool,
+	timeTakenMs int,
+) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO submissions (participant_id, question_id, answer_id, is_correct, time_taken_ms)
+		VALUES ($1, $2, $3, $4, $5)
+	`, participantID, questionID, answerID, isCorrect, timeTakenMs)
+	if err != nil {
+		// check unique violation
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation [web:80]
+			return ErrDuplicateSubmission
+		}
+		return err
+	}
+
+	if isCorrect {
+		_, err = tx.Exec(ctx, `
+			UPDATE participants
+			SET score = score + 1
+			WHERE id = $1
+		`, participantID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (r *QuizRepo) GetParticipantScore(ctx context.Context, participantID uuid.UUID) (int, error) {
+	var score int
+	err := r.db.QueryRow(ctx, `
+		SELECT score
+		FROM participants
+		WHERE id = $1
+	`, participantID).Scan(&score)
+	return score, err
+}
+
+func (r *QuizRepo) HasParticipantAnswered(ctx context.Context, participantID, questionID uuid.UUID) (bool, error) {
+	var count int
+	err := r.db.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM submissions
+		WHERE participant_id = $1
+		  AND question_id   = $2
+	`, participantID, questionID).Scan(&count)
+	return count > 0, err
 }

@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"kanji-quiz/server/model"
 
 	"github.com/google/uuid"
@@ -105,3 +107,39 @@ func (r *QuizRepo) ListParticipants(ctx context.Context, sessionID uuid.UUID) ([
 	}
 	return out, nil
 }
+
+// PickRandomAnswersForQuestion returns `limit` random answer IDs for a question.
+func (r *QuizRepo) PickRandomAnswersForQuestion(ctx context.Context, questionID uuid.UUID, limit int) ([]uuid.UUID, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT id
+		FROM answers
+		WHERE question_id = $1
+		ORDER BY random()
+		LIMIT $2
+	`, questionID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(ids) < limit {
+		return nil, fmt.Errorf("question %s has only %d answers, need %d", questionID, len(ids), limit)
+	}
+
+	return ids, nil
+}
+
+var ErrDuplicateSubmission = errors.New("duplicate submission")

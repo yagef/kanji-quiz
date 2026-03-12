@@ -3,8 +3,8 @@ package handlers
 import (
 	"kanji-quiz/pages"
 	"kanji-quiz/pages/user"
-	"kanji-quiz/server/live"
 	"kanji-quiz/server/repository"
+	"kanji-quiz/server/ws"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -13,7 +13,7 @@ import (
 
 type UserHandler struct {
 	repo *repository.QuizRepo
-	live *live.Manager
+	live *ws.Manager
 }
 
 func NewUser(repo *repository.QuizRepo) *UserHandler {

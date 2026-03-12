@@ -1,8 +1,13 @@
 package admin
 
-import "kanji-quiz/server/model"
+import (
+    "fmt"
 
-templ SessionDetail(joinURL string, quiz model.Quiz, session model.QuizSession, participants []model.Participant) {
+    "kanji-quiz/server/model"
+    "kanji-quiz/server/ws"
+)
+
+templ SessionDetail(joinURL string, quiz model.Quiz, session model.QuizSession, participants []model.Participant, phase ws.StatePhase) {
 @Layout("Session Details") {
 <p>
     <a href={ templ.SafeURL("/admin/quizzes/" + quiz.ID.String()) }>
@@ -10,7 +15,21 @@ templ SessionDetail(joinURL string, quiz model.Quiz, session model.QuizSession, 
     </a>
 </p>
 
+<h1>Session: { quiz.Title }</h1>
+
 <section>
+    // ── Session metadata ──────────────────────────────────────────────────
+    <ul>
+        <li><strong>Started:</strong> { session.StartedAt.Format("Jan 02, 2006 at 15:04") }</li>
+        <li>
+        <strong>Status:</strong>
+        if session.EndedAt == nil {
+        <span style="color: green;">Active</span>
+        } else {
+        <span style="color: gray;">Ended at { session.EndedAt.Format("15:04") }</span>
+        }
+        </li>
+    </ul>
     <h1>Scan this QR code to join:</h1>
 
     <img src={"/admin/qr?session=" + session.ID.String()} alt="QR code" />
@@ -20,28 +39,95 @@ templ SessionDetail(joinURL string, quiz model.Quiz, session model.QuizSession, 
     </p>
 </section>
 
+// ── Quiz flow controls ────────────────────────────────────────────────
+switch phase {
+case ws.PhaseWaiting:
+// Admin has not started the quiz yet — show start form
 <section>
-<h1>Session Details</h1>
-    <ul>
-        <li><strong>Started:</strong> { session.StartedAt.Format("Jan 02, 2006 at 15:04") }</li>
-        <li>
-            <strong>Status:</strong>
-            if session.EndedAt == nil {
-            <span style="color: green;">Active</span>
-            <form method="post" action={ templ.SafeURL("/admin/sessions/" + session.ID.String() + "/end") } style="display:inline; margin-left:10px;">
-            <button type="submit" onsubmit="return confirm('End this session?');">Stop Session</button>
-            </form>
-            } else {
-            <span style="color: gray;">Ended at { session.EndedAt.Format("15:04") }</span>
-            }
-        </li>
-    </ul>
+    <h2>Start Quiz</h2>
+    <form method="post" action={ templ.SafeURL("/admin/sessions/" + session.ID.String() + "/init") }>
+    <div>
+        <label for="answer_seconds">
+        Answer time per question (seconds):
+        </label>
+        <input
+                id="answer_seconds"
+                type="number"
+                name="answer_seconds"
+                value="60"
+                min="5"
+                max="120"
+                required
+        />
+    </div>
+    <div style="margin-top: 8px;">
+        <label for="countdown_seconds">
+        Countdown before question (seconds):
+        </label>
+        <input
+                id="countdown_seconds"
+                type="number"
+                name="countdown_seconds"
+                value="5"
+                min="3"
+                max="10"
+                required
+        />
+    </div>
+    <button
+            type="submit"
+            style="margin-top: 12px;"
+            onclick="return confirm('Start quiz? Participants will immediately see the first question countdown.');"
+    >
+        ▶ Start Quiz
+    </button>
+    </form>
+</section>
 
-    <h2>Leaderboard / Participants ({ len(participants) })</h2>
+case ws.PhaseCountdown:
+<section>
+    <h2>⏳ Countdown in progress…</h2>
+    <p>Participants are seeing the pre-question countdown.</p>
+    // Auto-refresh so admin sees phase update when countdown ends
+    <meta http-equiv="refresh" content="2"/>
+</section>
+
+case ws.PhaseAnswering:
+<section>
+    <h2>❓ Question active</h2>
+    <p>Participants are answering now.</p>
+    <meta http-equiv="refresh" content="2"/>
+</section>
+
+case ws.PhasePaused:
+<section>
+    <h2>⏸ Paused — waiting for next question</h2>
+    <form method="post" action={ templ.SafeURL("/admin/sessions/" + session.ID.String() + "/next") }>
+    <button type="submit">▶ Next Question</button>
+    </form>
+</section>
+
+case ws.PhaseFinished:
+<section>
+    <h2>🏁 Quiz Finished</h2>
+    <p>All questions have been answered.</p>
+    if session.EndedAt == nil {
+    <form method="post" action={ templ.SafeURL("/admin/sessions/" + session.ID.String() + "/end") }>
+    <button type="submit">Close Session</button>
+    </form>
+    }
+</section>
+}
+
+<hr/>
+
+// ── Participants ──────────────────────────────────────────────────────
+<section>
+    <h2>Participants ({ len(participants) })</h2>
     if len(participants) == 0 {
-    <p>No participants have joined yet.</p>
+    <p>No participants yet.</p>
     } else {
-    <table border="1" cellpadding="8" style="border-collapse: collapse; text-align: left;">
+    <table border="1" cellpadding="8" style="border-collapse:collapse; text-align:left;">
         <thead>
         <tr>
             <th>Rank</th>
@@ -52,9 +138,9 @@ templ SessionDetail(joinURL string, quiz model.Quiz, session model.QuizSession, 
         <tbody>
         for i, p := range participants {
         <tr>
-            <td>{ string(rune(i + 1 + '0')) }</td> <!-- simple 1, 2, 3... -->
+            <td>{ fmt.Sprint(i + 1) }</td>
             <td>{ p.Name }</td>
-            <td><strong>{ p.Score }</strong></td>
+            <td>{ fmt.Sprint(p.Score) }</td>
         </tr>
         }
         </tbody>

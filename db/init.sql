@@ -59,3 +59,5 @@ CREATE TABLE submissions (
     is_correct     BOOLEAN NOT NULL DEFAULT FALSE,
     time_0 CHECK (time_taken_ms >= 0)
 );
+
+ALTER TABLE submissions ADD CONSTRAINT uniq_participant_question UNIQUE (participant_id, question_id);
