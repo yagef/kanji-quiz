@@ -35,8 +35,17 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
 <h1>{ quiz.Title }</h1>
 <p>You are logged in as <strong>{ p.Name }</strong></p>
 
-<div id="status"></div>
+// Pass server values to JS via data attributes on a plain div.
+// templ interpolation works correctly in HTML attributes.
+<div
+        id="app-data"
+        data-participant-id={ p.ID.String() }
+        data-session-id={ session.ID.String() }
+        style="display:none"
+></div>
 
+<div id="status"></div>
+<div id="score"></div>
 <div id="countdown" style="font-size: 24px; margin: 10px 0;"></div>
 
 <div id="progress-bar">
@@ -48,12 +57,14 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
 <div id="answers"></div>
 
 <script>
-    const participantID = "{ p.ID.String() }";
-    const sessionID = "{ session.ID.String() }";
+    const appData        = document.getElementById("app-data");
+    const participantID  = appData.dataset.participantId;
+    const sessionID      = appData.dataset.sessionId;
 
     function renderQuestion(payload) {
         document.getElementById("status").innerText = payload.phase;
         document.getElementById("question-text").innerText = payload.question_text || "";
+        document.getElementById("score").innerText = "Score: " + payload.score;
 
         const isAnswering = payload.phase === "answering";
         const canClick    = isAnswering && !payload.has_answered_current;
@@ -92,18 +103,19 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
 
     function updateCountdown(remaining, total) {
         const cd = document.getElementById("countdown");
-        if (remaining <= 0) {
-            cd.innerText = "";
-            document.getElementById("progress-bar-inner").style.width = "0%";
+        const bar = document.getElementById("progress-bar-inner");
+        if (!remaining || remaining <= 0) {
+            cd.innerText      = "";
+            bar.style.width   = "0%";
             return;
         }
         cd.innerText = remaining + "s";
 
         const pct = Math.max(0, Math.min(100, (remaining / total) * 100));
-        document.getElementById("progress-bar-inner").style.width = pct + "%";
+        bar.style.width = pct + "%";
     }
 
-    const ws = new WebSocket(`ws://${location.host}/user/ws/participants/${participantID}`);
+    const ws = new WebSocket(`ws://${location.host}/ws/participants/${participantID}`);
 
     ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
@@ -115,6 +127,10 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
                 alert(msg.payload.message);
                 break;
         }
+    };
+
+    ws.onclose = () => {
+        document.getElementById("status").innerText = "Disconnected. Please refresh.";
     };
 
     function submitAnswer(answerID, questionID) {
