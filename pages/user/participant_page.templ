@@ -1,97 +1,154 @@
 package user
 
-import "kanji-quiz/server/model"
+import (
+"fmt"
+"kanji-quiz/server/model"
+)
 
 templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Participant) {
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8"/>
     <title>{ quiz.Title } – Quiz</title>
     <style>
-        #progress-bar {
-            width: 100%;
-            height: 10px;
-            background: #eee;
-        }
+        body { font-family: sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
+
+        /* Progress bar */
+        #timer-section { margin: 16px 0; }
+        #timer-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        #countdown { font-weight: bold; font-size: 1.1em; }
+        #progress-bar { width: 100%; height: 12px; background: #eee; border-radius: 6px; overflow: hidden; }
         #progress-bar-inner {
             height: 100%;
             width: 0%;
             background: #4caf50;
-            transition: width 0.2s linear;
+            transition: width 1s linear;  /* matches the 1s tick interval */
         }
-        .answer-btn {
-            display: block;
-            margin: 8px 0;
-            padding: 10px;
-            width: 100%;
-            text-align: left;
-        }
-        .answer-btn[disabled] {
-            opacity: 0.5;
-        }
+
+        /* Colour shifts as time runs low */
+        #progress-bar-inner.warn  { background: #ff9800; }
+        #progress-bar-inner.danger { background: #f44336; }
+
+        .answer-btn { display: block; margin: 8px 0; padding: 10px; width: 100%; text-align: left; cursor: pointer; }
+        .answer-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
     </style>
 </head>
 <body>
 <h1>{ quiz.Title }</h1>
 <p>You are logged in as <strong>{ p.Name }</strong></p>
+<p id="status">Waiting for quiz to start…</p>
+<p id="score">Score: 0</p>
 
-// Pass server values to JS via data attributes on a plain div.
-// templ interpolation works correctly in HTML attributes.
+<!-- ── Timer ──────────────────────────────────── -->
+<div id="timer-section" style="display:none">
+    <div id="timer-header">
+        <span>Time remaining</span>
+        <span id="countdown"></span>
+    </div>
+    <div id="progress-bar">
+        <div id="progress-bar-inner"></div>
+    </div>
+</div>
+
+<!-- ── Question & answers ──────────────────────── -->
+<p id="question-text" style="font-size:1.4em; margin-top:24px;"></p>
+<div id="answers"></div>
+
+<!-- Server values for JS -->
 <div
         id="app-data"
-        data-participant-id={ p.ID.String() }
-        data-session-id={ session.ID.String() }
+        data-participant-id={ fmt.Sprint(p.ID) }
+        data-session-id={ fmt.Sprint(session.ID) }
         style="display:none"
 ></div>
 
-<div id="status"></div>
-<div id="score"></div>
-<div id="countdown" style="font-size: 24px; margin: 10px 0;"></div>
-
-<div id="progress-bar">
-    <div id="progress-bar-inner"></div>
-</div>
-
-<h2 id="question-text"></h2>
-
-<div id="answers"></div>
-
 <script>
-    const appData        = document.getElementById("app-data");
-    const participantID  = appData.dataset.participantId;
-    const sessionID      = appData.dataset.sessionId;
+    const appData      = document.getElementById("app-data");
+    const participantID = appData.dataset.participantId;
+    const sessionID     = appData.dataset.sessionId;
 
+    // ── Local countdown ticker ─────────────────────────────────────
+    let tickInterval   = null;
+    let localRemaining = 0;
+    let localTotal     = 0;
+
+    function startLocalCountdown(remaining, total) {
+        clearInterval(tickInterval);
+        localRemaining = remaining;
+        localTotal     = total;
+        applyCountdownUI();
+
+        tickInterval = setInterval(() => {
+            localRemaining--;
+            if (localRemaining <= 0) {
+                localRemaining = 0;
+                clearInterval(tickInterval);
+            }
+            applyCountdownUI();
+        }, 1000);
+    }
+
+    function stopTimer() {
+        clearInterval(tickInterval);
+        const bar = document.getElementById("progress-bar-inner");
+        bar.style.width = "0%";
+        bar.className   = "";
+        document.getElementById("countdown").innerText = "";
+        document.getElementById("timer-section").style.display = "none";
+    }
+
+    function applyCountdownUI() {
+        const cd  = document.getElementById("countdown");
+        const bar = document.getElementById("progress-bar-inner");
+        const section = document.getElementById("timer-section");
+
+        if (localRemaining <= 0 || !localTotal) {
+            stopTimer();
+            return;
+        }
+
+        section.style.display = "block";
+        cd.innerText = localRemaining + "s";
+
+        const pct = Math.max(0, Math.min(100, (localRemaining / localTotal) * 100));
+        bar.style.width = pct + "%";
+
+        // Colour feedback
+        bar.classList.remove("warn", "danger");
+        if (pct <= 25)      bar.classList.add("danger");
+        else if (pct <= 50) bar.classList.add("warn");
+    }
+
+    // ── Render ─────────────────────────────────────────────────────
     function renderQuestion(payload) {
-        document.getElementById("status").innerText = payload.phase;
+        document.getElementById("status").innerText       = payload.phase;
         document.getElementById("question-text").innerText = payload.question_text || "";
-        document.getElementById("score").innerText = "Score: " + payload.score;
+        document.getElementById("score").innerText        = "Score: " + payload.score;
 
         const isAnswering = payload.phase === "answering";
         const canClick    = isAnswering && !payload.has_answered_current;
+
         const answersDiv = document.getElementById("answers");
         answersDiv.innerHTML = "";
-
         (payload.answers || []).forEach(a => {
             const btn = document.createElement("button");
-            btn.className = "answer-btn";
+            btn.className   = "answer-btn";
             btn.textContent = a.text;
             btn.disabled    = !canClick;
-            if (payload.has_answered_current) {
-                btn.title = "You already answered this question";
-            }
-            btn.onclick = () => submitAnswer(a.id, payload.question_id);
+            if (payload.has_answered_current) btn.title = "You already answered";
             btn.onclick = () => {
                 if (!canClick) return;
-
-                // Disable all buttons immediately for instant feedback,
-                // without waiting for the server round-trip.
                 disableAllAnswers();
                 submitAnswer(a.id, payload.question_id);
             };
             answersDiv.appendChild(btn);
         });
 
-        updateCountdown(payload.remaining_seconds, payload.total_seconds);
+        // Start smooth local countdown only while answering
+        if (isAnswering && payload.remaining_seconds > 0) {
+            startLocalCountdown(payload.remaining_seconds, payload.total_seconds);
+        } else {
+            stopTimer();
+        }
     }
 
     function disableAllAnswers() {
@@ -101,46 +158,24 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
         });
     }
 
-    function updateCountdown(remaining, total) {
-        const cd = document.getElementById("countdown");
-        const bar = document.getElementById("progress-bar-inner");
-        if (!remaining || remaining <= 0) {
-            cd.innerText      = "";
-            bar.style.width   = "0%";
-            return;
-        }
-        cd.innerText = remaining + "s";
-
-        const pct = Math.max(0, Math.min(100, (remaining / total) * 100));
-        bar.style.width = pct + "%";
-    }
-
+    // ── WebSocket ──────────────────────────────────────────────────
     const ws = new WebSocket(`ws://${location.host}/ws/participants/${participantID}`);
-
     ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
         switch (msg.type) {
-            case "state_sync":
-                renderQuestion(msg.payload);
-                break;
-            case "error":
-                alert(msg.payload.message);
-                break;
+            case "state_sync": renderQuestion(msg.payload); break;
+            case "error":      alert(msg.payload.message);  break;
         }
     };
-
     ws.onclose = () => {
+        stopTimer();
         document.getElementById("status").innerText = "Disconnected. Please refresh.";
     };
 
     function submitAnswer(answerID, questionID) {
-        const payload = {
-            question_id: questionID,
-            answer_id: answerID,
-        };
         ws.send(JSON.stringify({
-            type: "answer",
-            payload: payload,
+            type:    "answer",
+            payload: { question_id: questionID, answer_id: answerID },
         }));
     }
 </script>

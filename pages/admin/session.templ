@@ -30,13 +30,6 @@ templ SessionDetail(joinURL string, quiz model.Quiz, session model.QuizSession, 
         }
         </li>
     </ul>
-    <h1>Scan this QR code to join:</h1>
-
-    <img src={"/admin/qr?session=" + session.ID.String()} alt="QR code" />
-
-    <p>Or open
-        <a href={ joinURL }>this link</a>
-    </p>
 </section>
 
 // ── Quiz flow controls ────────────────────────────────────────────────
@@ -44,6 +37,15 @@ switch phase {
 case ws.PhaseWaiting:
 // Admin has not started the quiz yet — show start form
 <section>
+    <div>
+        <h1>Scan this QR code to join:</h1>
+
+        <img src={"/admin/qr?session=" + session.ID.String()} alt="QR code" />
+
+        <p>Or open
+            <a href={ joinURL }>this link</a>
+        </p>
+    </div>
     <h2>Start Quiz</h2>
     <form method="post" action={ templ.SafeURL("/admin/sessions/" + session.ID.String() + "/init") }>
     <div>

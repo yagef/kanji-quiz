@@ -164,7 +164,7 @@ func (r *QuizRepo) DeleteQuestion(ctx context.Context, quizID, questionID uuid.U
 
 func (r *QuizRepo) GetAnswersByIDs(ctx context.Context, answerIDs []uuid.UUID) ([]model.Answer, error) {
 	rows, err := r.db.Query(ctx,
-		`SELECT id, question_id, text FROM answers WHERE question_id = ANY($1)`, answerIDs,
+		`SELECT id, question_id, text FROM answers WHERE id = ANY($1)`, answerIDs,
 	)
 	if err != nil {
 		return nil, err

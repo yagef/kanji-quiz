@@ -149,14 +149,26 @@ func (e *Engine) runQuestion(ctx context.Context, sessionID uuid.UUID, index int
 	}
 
 	state.Phase = PhaseCountdown
+	state.CountdownDeadline = time.Now().Add(state.CountdownDuration)
 	// No deadline yet, just countdown duration
 	state.mu.Unlock()
 
 	// Broadcast "countdown starting"
 	_ = e.broadcastState(ctx, sessionID)
 
-	// Optionally broadcast 1s ticks for progress (or let client use local timer)
-	time.Sleep(state.CountdownDuration)
+	// Tick every second so clients get live remaining_seconds updates
+	ticker := time.NewTicker(time.Second)
+	timer := time.NewTimer(state.CountdownDuration)
+loop:
+	for {
+		select {
+		case <-ticker.C:
+			_ = e.broadcastState(ctx, sessionID)
+		case <-timer.C:
+			ticker.Stop()
+			break loop
+		}
+	}
 
 	// 2) ANSWERING PHASE
 	state.mu.Lock()
@@ -264,7 +276,7 @@ func (e *Engine) buildBaseStatePayload(ctx context.Context, sessionID uuid.UUID)
 		r := state.Rounds[state.CurrentIndex]
 		idx = r.Index + 1
 
-		if state.Phase == PhaseCountdown || state.Phase == PhaseAnswering {
+		if state.Phase == PhaseAnswering {
 			q, err := e.repo.GetQuestion(ctx, r.QuestionID)
 			if err == nil {
 				questionID = q.ID.String()
@@ -279,9 +291,6 @@ func (e *Engine) buildBaseStatePayload(ctx context.Context, sessionID uuid.UUID)
 					})
 				}
 			}
-		}
-
-		if state.Phase == PhaseAnswering {
 			now := time.Now()
 			if now.Before(r.Deadline) {
 				remainingSec = int(r.Deadline.Sub(now).Seconds()) + 1
