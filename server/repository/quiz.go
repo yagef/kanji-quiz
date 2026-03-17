@@ -148,12 +148,16 @@ func (r *QuizRepo) IsAnswerCorrect(ctx context.Context, questionID, answerID uui
 	return count == 1, nil
 }
 
+var maxScore = 1000
+var bonusThreshold = 3000
+
 // InsertSubmissionAndUpdateScore inserts into submissions and updates participant score.
 func (r *QuizRepo) InsertSubmissionAndUpdateScore(
 	ctx context.Context,
 	participantID, questionID, answerID uuid.UUID,
 	isCorrect bool,
 	timeTakenMs int,
+	timeLimit int,
 ) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -174,12 +178,19 @@ func (r *QuizRepo) InsertSubmissionAndUpdateScore(
 		return err
 	}
 
+	var score int
+	if timeTakenMs < bonusThreshold {
+		score = maxScore
+	} else {
+		score = maxScore * (timeLimit - timeTakenMs) / (timeLimit - bonusThreshold)
+	}
+
 	if isCorrect {
 		_, err = tx.Exec(ctx, `
 			UPDATE participants
-			SET score = score + 1
+			SET score = score + $2
 			WHERE id = $1
-		`, participantID)
+		`, participantID, score)
 		if err != nil {
 			return err
 		}

@@ -151,6 +151,10 @@ func (r *QuizRepo) PickRandomAnswersForQuestion(ctx context.Context, questionID 
 		answerIDs[i], answerIDs[j] = answerIDs[j], answerIDs[i]
 	})
 
+	if len(answerIDs) < count {
+		return nil, fmt.Errorf("question %s has only %d answers, need %d", questionID, len(answerIDs), count)
+	}
+
 	return answerIDs, nil
 }
 

@@ -279,7 +279,7 @@ func (e *Engine) buildBaseStatePayload(ctx context.Context, sessionID uuid.UUID)
 			q, err := e.repo.GetQuestion(ctx, r.QuestionID)
 			if err == nil {
 				questionID = q.ID.String()
-				questionText = q.Kanji
+				questionText = q.TypeText + " " + q.Kanji
 			}
 			answerRows, err := e.repo.GetAnswersByIDs(ctx, r.AnswerIDs)
 			if err == nil {

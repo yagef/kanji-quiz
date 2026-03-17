@@ -184,13 +184,14 @@ func (h *WSHandler) handleAnswer(c *ws.Client, p *model.Participant, payload ws.
 	// 4) Compute time taken in ms (optional; simple: from now to deadline)
 	now := time.Now()
 	remaining := round.Deadline.Sub(now)
-	timeTakenMs := int(state.AnswerDuration.Milliseconds()) - int(remaining.Milliseconds())
+	timeLimit := int(state.AnswerDuration.Milliseconds())
+	timeTakenMs := timeLimit - int(remaining.Milliseconds())
 	if timeTakenMs < 0 {
 		timeTakenMs = 0
 	}
 
 	// 5) Insert submission and update score
-	err = h.repo.InsertSubmissionAndUpdateScore(ctx, p.ID, questionID, answerID, isCorrect, timeTakenMs)
+	err = h.repo.InsertSubmissionAndUpdateScore(ctx, p.ID, questionID, answerID, isCorrect, timeTakenMs, timeLimit)
 	if err != nil {
 		if errors.Is(err, repository.ErrDuplicateSubmission) {
 			h.sendError(c, "you already answered this question")
