@@ -49,7 +49,7 @@ CREATE TABLE participants (
     score    		INT DEFAULT 0 CHECK (score >= 0)
 );
 
-CREATE UNIQUE INDEX idx_participants_user_id ON participants (user_id);
+CREATE UNIQUE INDEX idx_participants_user_id ON participants (user_id, session_id);
 
 CREATE TABLE submissions (
     taken_ms  INT DEFAULT id             UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,

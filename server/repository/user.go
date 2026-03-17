@@ -45,8 +45,8 @@ func (r *QuizRepo) CreateParticipant(ctx context.Context, userID, sessionID uuid
 	err := r.db.QueryRow(ctx, `
 		INSERT INTO participants (user_id, session_id)
 		VALUES ($1, $2)
-		RETURNING id, user_id, $1::uuid AS user_id_dup
-	`, userID, sessionID).Scan(&p.ID, &p.UserID, new(uuid.UUID)) // or a simpler RETURNING shape
+		RETURNING id, user_id
+	`, userID, sessionID).Scan(&p.ID, &p.UserID)
 
 	// You likely want the name and score too:
 	err = r.db.QueryRow(ctx, `
