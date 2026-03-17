@@ -66,7 +66,6 @@ func (e *Engine) InitSession(ctx context.Context, sessionID, quizID uuid.UUID, a
 
 	rounds := make([]QuestionRound, len(questions))
 	for i, q := range questions {
-		// Pick 4 random answers for this question (you likely already have this)
 		answerIDs, err := e.repo.PickRandomAnswersForQuestion(ctx, q.ID, 4)
 		if err != nil {
 			return err

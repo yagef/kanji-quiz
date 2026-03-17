@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"kanji-quiz/server/model"
+	"math/rand"
 
 	"github.com/google/uuid"
 )
@@ -109,37 +110,48 @@ func (r *QuizRepo) ListParticipants(ctx context.Context, sessionID uuid.UUID) ([
 }
 
 // PickRandomAnswersForQuestion returns `limit` random answer IDs for a question.
-func (r *QuizRepo) PickRandomAnswersForQuestion(ctx context.Context, questionID uuid.UUID, limit int) ([]uuid.UUID, error) {
+func (r *QuizRepo) PickRandomAnswersForQuestion(ctx context.Context, questionID uuid.UUID, count int) ([]uuid.UUID, error) {
+	// 1. Get the correct answer for this question
+	var correctAnswerID uuid.UUID
+	err := r.db.QueryRow(ctx, `
+        SELECT q.correct_answer_id
+        FROM questions AS q 
+        WHERE q.id = $1
+        LIMIT 1
+    `, questionID).Scan(&correctAnswerID)
+	if err != nil {
+		return nil, fmt.Errorf("correct answer not found for question %s: %w", questionID, err)
+	}
+
+	// 2. Pick (count-1) random wrong answers
 	rows, err := r.db.Query(ctx, `
-		SELECT id
-		FROM answers
-		WHERE question_id = $1
-		ORDER BY random()
-		LIMIT $2
-	`, questionID, limit)
+        SELECT a.id
+        FROM answers AS a
+        INNER JOIN questions AS q ON q.id = a.question_id AND q.correct_answer_id != a.id 
+        WHERE a.question_id = $1
+        ORDER BY RANDOM()
+        LIMIT $2
+    `, questionID, count-1)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var ids []uuid.UUID
+	answerIDs := []uuid.UUID{correctAnswerID}
 	for rows.Next() {
 		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
-		ids = append(ids, id)
+		answerIDs = append(answerIDs, id)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
+	// 3. Shuffle so correct answer isn't always first
+	rand.Shuffle(len(answerIDs), func(i, j int) {
+		answerIDs[i], answerIDs[j] = answerIDs[j], answerIDs[i]
+	})
 
-	if len(ids) < limit {
-		return nil, fmt.Errorf("question %s has only %d answers, need %d", questionID, len(ids), limit)
-	}
-
-	return ids, nil
+	return answerIDs, nil
 }
 
 var ErrDuplicateSubmission = errors.New("duplicate submission")
