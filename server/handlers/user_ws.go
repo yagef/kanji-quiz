@@ -212,13 +212,6 @@ func (h *WSHandler) handleAnswer(c *ws.Client, p *model.Participant, payload ws.
 
 	go h.engine.NotifyAnswerSubmitted(ctx, c.SessionID)
 	_ = h.engine.BroadcastStateToParticipant(ctx, c.SessionID, p.ID)
-
-	// 6) Optional: send an ACK just to this client
-	ack := ws.ErrorPayload{Message: "answer received"}
-	raw, _ := json.Marshal(ack)
-	env := ws.Envelope{Type: ws.MsgError, Payload: raw} // or a dedicated MsgAnswerAck
-	msg, _ := json.Marshal(env)
-	c.Send <- msg
 }
 
 func (h *WSHandler) sendError(c *ws.Client, msg string) {
