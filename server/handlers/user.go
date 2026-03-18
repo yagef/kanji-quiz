@@ -133,7 +133,7 @@ func (h *UserHandler) ParticipantPage(c *gin.Context) {
 		return
 	}
 	if session.EndedAt != nil {
-		c.String(http.StatusBadRequest, "Quiz already ended")
+		c.Redirect(http.StatusSeeOther, "/user/participants/"+participantID.String()+"/results")
 		return
 	}
 

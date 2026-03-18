@@ -31,14 +31,13 @@ templ SessionDetail(joinURL string, quiz model.Quiz, session model.QuizSession, 
         </li>
     </ul>
 </section>
-
-// ── Quiz flow controls ────────────────────────────────────────────────
-switch phase {
-case ws.PhaseWaiting:
-// Admin has not started the quiz yet — show start form
 <section>
     <div>
+        if session.EndedAt != nil {
+        <h1>Scan this QR code to view results:</h1>
+        } else {
         <h1>Scan this QR code to join:</h1>
+        }
 
         <img src={"/admin/qr?session=" + session.ID.String()} alt="QR code" />
 
@@ -46,11 +45,12 @@ case ws.PhaseWaiting:
             <a href={ joinURL }>this link</a>
         </p>
     </div>
+    if session.EndedAt == nil && phase == ws.PhaseWaiting {
     <h2>Start Quiz</h2>
     <form method="post" action={ templ.SafeURL("/admin/sessions/" + session.ID.String() + "/init") }>
     <div>
         <label for="answer_seconds">
-        Answer time per question (seconds):
+            Answer time per question (seconds):
         </label>
         <input
                 id="answer_seconds"
@@ -64,7 +64,7 @@ case ws.PhaseWaiting:
     </div>
     <div style="margin-top: 8px;">
         <label for="countdown_seconds">
-        Countdown before question (seconds):
+            Countdown before question (seconds):
         </label>
         <input
                 id="countdown_seconds"
@@ -84,8 +84,11 @@ case ws.PhaseWaiting:
         ▶ Start Quiz
     </button>
     </form>
+    }
 </section>
 
+// ── Quiz flow controls ────────────────────────────────────────────────
+switch phase {
 case ws.PhaseCountdown:
 <section>
     <h2>⏳ Countdown in progress…</h2>
