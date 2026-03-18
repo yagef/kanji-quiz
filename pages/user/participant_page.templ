@@ -233,25 +233,46 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
     }
 
     // ── WebSocket ─────────────────────────────────────────
-    const ws = new WebSocket(`ws://${location.host}/ws/participants/${participantID}`);
+    let wsConn = null;
+    let reconnectDelay = 1000;        // start at 1s
+    const maxReconnectDelay = 30000;  // cap at 30s
 
-    ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        switch (msg.type) {
-            case "state_sync": renderQuestion(msg.payload); break;
-            case "error":      alert(msg.payload.message);  break;
-        }
-    };
+    function connect() {
+        const proto = location.protocol === "https:" ? "wss" : "ws";
+        wsConn = new WebSocket(`${proto}://${location.host}/ws/participants/${participantID}`);
 
-    ws.onclose = () => {
-        stopTimer();
-        hideOverlay();
-        document.getElementById("status").innerText = "Disconnected. Please refresh.";
-    };
+        wsConn.onopen = () => {
+            reconnectDelay = 1000; // reset backoff on success
+        };
+
+        wsConn.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            switch (msg.type) {
+                case "state_sync": renderQuestion(msg.payload); break;
+                case "error":      alert(msg.payload.message);  break;
+            }
+        };
+
+        wsConn.onclose = () => {
+            stopTimer();
+            hideOverlay();
+            document.getElementById("status").innerText =
+                `Disconnected. Reconnecting in ${reconnectDelay / 1000}s…`;
+            setTimeout(() => {
+                reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay);
+                connect();
+            }, reconnectDelay);
+        };
+
+        wsConn.onerror = () => wsConn.close(); // let onclose handle retry
+    }
+
+    connect(); // initial connection
 
     function submitAnswer(answerID, questionID) {
-        ws.send(JSON.stringify({
-            type:    "answer",
+        if (!wsConn || wsConn.readyState !== WebSocket.OPEN) return;
+        wsConn.send(JSON.stringify({
+            type: "answer",
             payload: { question_id: questionID, answer_id: answerID },
         }));
     }

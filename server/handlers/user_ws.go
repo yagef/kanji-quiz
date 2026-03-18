@@ -70,21 +70,35 @@ func (h *WSHandler) ParticipantWS(c *gin.Context) {
 	go h.readPump(hub, client, &p)
 }
 
+const (
+	writeWait  = 10 * time.Second
+	pongWait   = 5 * time.Minute     // was implicitly 60s, now 5 min
+	pingPeriod = (pongWait * 9) / 10 // ~4.5 min
+)
+
 func writePump(hub *ws.SessionHub, c *ws.Client) {
+	ticker := time.NewTicker(pingPeriod)
 	defer func() {
+		ticker.Stop()
 		hub.RemoveClient(c.ParticipantID)
 		_ = c.Conn.Close()
 	}()
-
 	for {
-		msg, ok := <-c.Send
-		if !ok {
-			// Channel closed by hub — send close frame
-			_ = c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
-			return
-		}
-		if err := c.Conn.WriteMessage(websocket.TextMessage, msg); err != nil {
-			return
+		select {
+		case msg, ok := <-c.Send:
+			_ = c.Conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if !ok {
+				_ = c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
+			}
+			if err := c.Conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+				return
+			}
+		case <-ticker.C:
+			_ = c.Conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := c.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
 		}
 	}
 }
@@ -94,15 +108,10 @@ func (h *WSHandler) readPump(hub *ws.SessionHub, c *ws.Client, p *model.Particip
 		hub.RemoveClient(c.ParticipantID)
 		_ = c.Conn.Close()
 	}()
-
-	// Reasonable limits to prevent slow/malicious clients
 	c.Conn.SetReadLimit(512)
-	err := c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-	if err != nil {
-		return
-	}
+	_ = c.Conn.SetReadDeadline(time.Now().Add(pongWait)) // ← use constant
 	c.Conn.SetPongHandler(func(string) error {
-		_ = c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		_ = c.Conn.SetReadDeadline(time.Now().Add(pongWait))
 		return nil
 	})
 
