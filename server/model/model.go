@@ -69,4 +69,5 @@ type SubmissionDetail struct {
 	AnswerGiven   string // empty string if timed out
 	CorrectAnswer string
 	IsCorrect     bool
+	TimeTaken     time.Duration
 }

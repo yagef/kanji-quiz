@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"kanji-quiz/server/model"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -115,7 +116,8 @@ func (r *QuizRepo) GetParticipantSubmissions(ctx context.Context, participantID 
             at.title,
             COALESCE(given_ans.text, '— (no answer)'),
             correct_ans.text,
-            s.is_correct
+            s.is_correct,
+            s.time_taken_ms
         FROM submissions s
         JOIN questions     qu          ON s.question_id          = qu.id
         JOIN answer_types  at          ON qu.type_id              = at.id
@@ -132,10 +134,18 @@ func (r *QuizRepo) GetParticipantSubmissions(ctx context.Context, participantID 
 	var out []model.SubmissionDetail
 	for rows.Next() {
 		var d model.SubmissionDetail
-		if err := rows.Scan(&d.Kanji, &d.QuestionType,
-			&d.AnswerGiven, &d.CorrectAnswer, &d.IsCorrect); err != nil {
+		var timeTakenMs int64
+		if err := rows.Scan(
+			&d.Kanji,
+			&d.QuestionType,
+			&d.AnswerGiven,
+			&d.CorrectAnswer,
+			&d.IsCorrect,
+			&timeTakenMs,
+		); err != nil {
 			return nil, err
 		}
+		d.TimeTaken = time.Duration(timeTakenMs) * time.Millisecond
 		out = append(out, d)
 	}
 	return out, nil

@@ -42,10 +42,11 @@ if len(subs) == 0 {
     <thead>
     <tr>
         <th>Kanji</th>
-        <th>Question type</th>
+        <th>Question</th>
         <th>Your answer</th>
         <th>Correct answer</th>
         <th>Result</th>
+        <th>Time taken</th>
     </tr>
     </thead>
     <tbody>
@@ -62,6 +63,7 @@ if len(subs) == 0 {
             <span class="incorrect">✗ Wrong</span>
             }
         </td>
+        <td>{ s.TimeTaken.String() }</td>
     </tr>
     }
     </tbody>
