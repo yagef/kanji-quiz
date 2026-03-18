@@ -63,6 +63,8 @@ func main() {
 	{
 		user.GET("/sessions/:sessionID", uh.JoinSession)
 		user.GET("/participants/play", uh.ParticipantPage)
+		user.GET("/participants/:participantID/results", uh.SessionResult)
+		user.GET("/history", uh.History)
 	}
 
 	wsH := handlers.NewWSHandler(quizRepo, manager, engine)

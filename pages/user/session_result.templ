@@ -1,0 +1,72 @@
+package user
+
+import (
+"fmt"
+"kanji-quiz/server/model"
+)
+
+templ SessionResultPage(quiz model.Quiz, p model.Participant, subs []model.SubmissionDetail) {
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>{ quiz.Title } – Results</title>
+    <style>
+        body  { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; }
+        nav   { margin-bottom: 24px; }
+        a     { color: #1976d2; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .score-box { background: #f5f5f5; border-radius: 8px; padding: 16px 20px;
+            display: inline-block; margin-bottom: 24px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e0e0e0; }
+        th  { background: #f5f5f5; font-weight: 600; }
+        .kanji { font-size: 1.4em; }
+        .correct   { color: #2e7d32; font-weight: bold; }
+        .incorrect { color: #c62828; font-weight: bold; }
+        .empty { color: #999; }
+    </style>
+</head>
+<body>
+<nav><a href="/user/history">← Back to history</a></nav>
+<h1>{ quiz.Title }</h1>
+<p>Results for <strong>{ p.Name }</strong></p>
+
+<div class="score-box">
+    Final score: <strong>{ fmt.Sprintf("%d", p.Score) }</strong>
+</div>
+
+if len(subs) == 0 {
+<p class="empty">No submissions recorded for this session.</p>
+} else {
+<table>
+    <thead>
+    <tr>
+        <th>Kanji</th>
+        <th>Question type</th>
+        <th>Your answer</th>
+        <th>Correct answer</th>
+        <th>Result</th>
+    </tr>
+    </thead>
+    <tbody>
+    for _, s := range subs {
+    <tr>
+        <td class="kanji">{ s.Kanji }</td>
+        <td>{ s.QuestionType }</td>
+        <td>{ s.AnswerGiven }</td>
+        <td>{ s.CorrectAnswer }</td>
+        <td>
+            if s.IsCorrect {
+            <span class="correct">✓ Correct</span>
+            } else {
+            <span class="incorrect">✗ Wrong</span>
+            }
+        </td>
+    </tr>
+    }
+    </tbody>
+</table>
+}
+</body>
+</html>
+}
