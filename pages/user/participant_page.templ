@@ -248,8 +248,17 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
         wsConn.onmessage = (event) => {
             const msg = JSON.parse(event.data);
             switch (msg.type) {
-                case "state_sync": renderQuestion(msg.payload); break;
-                case "error":      alert(msg.payload.message);  break;
+                case "state_sync":
+                    if (msg.payload.phase === "finished") {
+                        wsConn.close();
+                        window.location.href = `/user/participants/${participantID}/results`;
+                        return;
+                    }
+                    renderQuestion(msg.payload);
+                    break;
+                case "error":
+                    alert(msg.payload.message);
+                    break;
             }
         };
 

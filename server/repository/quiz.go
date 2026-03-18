@@ -219,3 +219,23 @@ func (r *QuizRepo) HasParticipantAnswered(ctx context.Context, participantID, qu
 	`, participantID, questionID).Scan(&count)
 	return count > 0, err
 }
+
+func (r *QuizRepo) InsertTimeoutSubmissions(
+	ctx context.Context,
+	sessionID, questionID uuid.UUID,
+	timeLimitMs int,
+) error {
+	_, err := r.db.Exec(ctx, `
+        INSERT INTO submissions (participant_id, question_id, answer_id, is_correct, time_taken_ms)
+        SELECT p.id, $2, NULL, false, $3
+        FROM participants p
+        WHERE p.session_id = $1
+          AND NOT EXISTS (
+              SELECT 1 FROM submissions s
+              WHERE s.participant_id = p.id
+                AND s.question_id   = $2
+          )
+        ON CONFLICT DO NOTHING
+    `, sessionID, questionID, timeLimitMs)
+	return err
+}

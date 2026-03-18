@@ -210,6 +210,7 @@ func (h *WSHandler) handleAnswer(c *ws.Client, p *model.Participant, payload ws.
 		return
 	}
 
+	go h.engine.NotifyAnswerSubmitted(ctx, c.SessionID)
 	_ = h.engine.BroadcastStateToParticipant(ctx, c.SessionID, p.ID)
 
 	// 6) Optional: send an ACK just to this client

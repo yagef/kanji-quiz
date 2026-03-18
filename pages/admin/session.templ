@@ -111,8 +111,9 @@ case ws.PhasePaused:
     <button type="submit">▶ Next Question</button>
     </form>
 </section>
+}
 
-case ws.PhaseFinished:
+if session.EndedAt != nil || phase == ws.PhaseFinished {
 <section>
     <h2>🏁 Quiz Finished</h2>
     <p>All questions have been answered.</p>

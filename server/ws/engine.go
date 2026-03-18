@@ -187,15 +187,34 @@ loop:
 	// Broadcast "answering started" with question/answers/deadline
 	_ = e.broadcastState(ctx, sessionID)
 
-	// 3) WAIT for answer duration
-	time.Sleep(state.AnswerDuration)
+	// 3) Create a per-question "all answered" channel
+	allCh := make(chan struct{}, 1)
+	state.mu.Lock()
+	state.allAnsweredCh = allCh
+	state.mu.Unlock()
 
-	// 4) PAUSED PHASE
+	// 4) WAIT for answer duration OR everyone answered
+	answerTimer := time.NewTimer(state.AnswerDuration)
+	select {
+	case <-answerTimer.C:
+	case <-allCh:
+		answerTimer.Stop()
+	}
+
+	// 5) PAUSED PHASE (unchanged)
 	state.mu.Lock()
 	if state.CurrentIndex == index && state.Phase == PhaseAnswering {
 		state.Phase = PhasePaused
 	}
 	state.mu.Unlock()
+
+	round := state.Rounds[index]
+	timeLimitMs := int(state.AnswerDuration.Milliseconds())
+	bgCtx := context.Background()
+	if err := e.repo.InsertTimeoutSubmissions(bgCtx, sessionID, round.QuestionID, timeLimitMs); err != nil {
+		// Non-fatal: log but don't block the quiz
+		fmt.Printf("warn: InsertTimeoutSubmissions: %v\n", err)
+	}
 
 	_ = e.broadcastState(ctx, sessionID)
 }
@@ -364,4 +383,35 @@ func (e *Engine) GetPhase(sessionID uuid.UUID) StatePhase {
 	state.mu.RLock()
 	defer state.mu.RUnlock()
 	return state.Phase
+}
+
+func (e *Engine) NotifyAnswerSubmitted(ctx context.Context, sessionID uuid.UUID) {
+	state := e.getState(sessionID)
+	if state == nil {
+		return
+	}
+
+	state.mu.RLock()
+	if state.Phase != PhaseAnswering || state.CurrentIndex < 0 {
+		state.mu.RUnlock()
+		return
+	}
+	questionID := state.Rounds[state.CurrentIndex].QuestionID
+	ch := state.allAnsweredCh
+	state.mu.RUnlock()
+
+	total, err := e.repo.CountParticipants(ctx, sessionID)
+	if err != nil || total == 0 {
+		return
+	}
+	answered, err := e.repo.CountSubmissionsForQuestion(ctx, sessionID, questionID)
+	if err != nil {
+		return
+	}
+	if answered >= total {
+		select {
+		case ch <- struct{}{}:
+		default: // already signaled, no-op
+		}
+	}
 }

@@ -60,6 +60,7 @@ type SessionState struct {
 	CountdownDuration time.Duration // e.g. 5s
 	AnswerDuration    time.Duration // per question
 	CountdownDeadline time.Time
+	allAnsweredCh     chan struct{}
 
 	mu sync.RWMutex
 }

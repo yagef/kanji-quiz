@@ -158,4 +158,23 @@ func (r *QuizRepo) PickRandomAnswersForQuestion(ctx context.Context, questionID 
 	return answerIDs, nil
 }
 
+func (r *QuizRepo) CountParticipants(ctx context.Context, sessionID uuid.UUID) (int, error) {
+	var count int
+	err := r.db.QueryRow(ctx,
+		`SELECT COUNT(*) FROM participants WHERE session_id = $1`, sessionID,
+	).Scan(&count)
+	return count, err
+}
+
+func (r *QuizRepo) CountSubmissionsForQuestion(ctx context.Context, sessionID, questionID uuid.UUID) (int, error) {
+	var count int
+	err := r.db.QueryRow(ctx, `
+        SELECT COUNT(*) FROM submissions s
+        JOIN participants p ON p.id = s.participant_id
+        WHERE p.session_id = $1 AND s.question_id = $2`,
+		sessionID, questionID,
+	).Scan(&count)
+	return count, err
+}
+
 var ErrDuplicateSubmission = errors.New("duplicate submission")
