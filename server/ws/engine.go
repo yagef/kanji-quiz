@@ -275,6 +275,14 @@ func (e *Engine) buildBaseStatePayload(ctx context.Context, sessionID uuid.UUID)
 		r := state.Rounds[state.CurrentIndex]
 		idx = r.Index + 1
 
+		if state.Phase == PhaseCountdown {
+			now := time.Now()
+			totalSec = int(state.CountdownDuration.Seconds())
+			if now.Before(state.CountdownDeadline) {
+				remainingSec = int(state.CountdownDeadline.Sub(now).Seconds()) + 1
+			}
+		}
+
 		if state.Phase == PhaseAnswering {
 			q, err := e.repo.GetQuestion(ctx, r.QuestionID)
 			if err == nil {

@@ -10,8 +10,12 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
 <head>
     <title>{ quiz.Title } – Quiz</title>
     <style>
-        body { font-family: sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
-
+        body {
+            font-family: sans-serif;
+            max-width: 640px;
+            margin: 40px auto;
+            padding: 0 16px;
+        }
         /* Progress bar */
         #timer-section { margin: 16px 0; }
         #timer-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
@@ -21,24 +25,70 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
             height: 100%;
             width: 0%;
             background: #4caf50;
-            transition: width 1s linear;  /* matches the 1s tick interval */
+            transition: width 1s linear;
         }
-
-        /* Colour shifts as time runs low */
-        #progress-bar-inner.warn  { background: #ff9800; }
+        #progress-bar-inner.warn   { background: #ff9800; }
         #progress-bar-inner.danger { background: #f44336; }
 
-        .answer-btn { display: block; margin: 8px 0; padding: 10px; width: 100%; text-align: left; cursor: pointer; }
+        .answer-btn {
+            display: block; margin: 8px 0; padding: 10px;
+            width: 100%; text-align: left; cursor: pointer;
+        }
         .answer-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+        /* ── Fullscreen countdown overlay ─────────────────────── */
+        #countdown-overlay {
+            display: none;                /* hidden by default        */
+            position: fixed;
+            inset: 0;                     /* top/right/bottom/left: 0 */
+            z-index: 9999;
+            background: rgba(0, 0, 0, 0.75);
+            pointer-events: all;          /* blocks ALL clicks below  */
+
+            /* centre the number */
+            align-items: center;
+            justify-content: center;
+        }
+        #countdown-overlay.active {
+            display: flex;
+        }
+        #countdown-overlay-number {
+            font-size: clamp(120px, 30vw, 220px);
+            font-weight: 900;
+            color: #fff;
+            line-height: 1;
+            text-shadow: 0 4px 32px rgba(0,0,0,0.6);
+            user-select: none;
+            pointer-events: none;         /* the number itself is not a click target */
+            animation: pulse 1s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%   { transform: scale(1);    opacity: 1;   }
+            50%  { transform: scale(1.08); opacity: 0.85; }
+            100% { transform: scale(1);    opacity: 1;   }
+        }
     </style>
 </head>
 <body>
+<div
+        id="app-data"
+        data-participant-id={ fmt.Sprint(p.ID) }
+        data-session-id={ fmt.Sprint(session.ID) }
+        style="display:none"
+></div>
+
+<!-- ── Fullscreen countdown overlay (shown during PhaseCountdown) ── -->
+<div id="countdown-overlay" aria-live="assertive" aria-label="Question countdown">
+    <span id="countdown-overlay-number">-</span>
+</div>
+
 <h1>{ quiz.Title }</h1>
 <p>You are logged in as <strong>{ p.Name }</strong></p>
+
 <p id="status">Waiting for quiz to start…</p>
+<p id="question-text"></p>
 <p id="score">Score: 0</p>
 
-<!-- ── Timer ──────────────────────────────────── -->
 <div id="timer-section" style="display:none">
     <div id="timer-header">
         <span>Time remaining</span>
@@ -49,24 +99,14 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
     </div>
 </div>
 
-<!-- ── Question & answers ──────────────────────── -->
-<p id="question-text" style="font-size:1.4em; margin-top:24px;"></p>
 <div id="answers"></div>
 
-<!-- Server values for JS -->
-<div
-        id="app-data"
-        data-participant-id={ fmt.Sprint(p.ID) }
-        data-session-id={ fmt.Sprint(session.ID) }
-        style="display:none"
-></div>
-
 <script>
-    const appData      = document.getElementById("app-data");
+    const appData       = document.getElementById("app-data");
     const participantID = appData.dataset.participantId;
     const sessionID     = appData.dataset.sessionId;
 
-    // ── Local countdown ticker ─────────────────────────────────────
+    // ── Local countdown ticker ─────────────────────────────
     let tickInterval   = null;
     let localRemaining = 0;
     let localTotal     = 0;
@@ -76,7 +116,6 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
         localRemaining = remaining;
         localTotal     = total;
         applyCountdownUI();
-
         tickInterval = setInterval(() => {
             localRemaining--;
             if (localRemaining <= 0) {
@@ -92,45 +131,81 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
         const bar = document.getElementById("progress-bar-inner");
         bar.style.width = "0%";
         bar.className   = "";
-        document.getElementById("countdown").innerText = "";
+        document.getElementById("countdown").innerText      = "";
         document.getElementById("timer-section").style.display = "none";
     }
 
     function applyCountdownUI() {
-        const cd  = document.getElementById("countdown");
-        const bar = document.getElementById("progress-bar-inner");
+        const cd      = document.getElementById("countdown");
+        const bar     = document.getElementById("progress-bar-inner");
         const section = document.getElementById("timer-section");
 
-        if (localRemaining <= 0 || !localTotal) {
-            stopTimer();
-            return;
-        }
+        if (localRemaining <= 0 || !localTotal) { stopTimer(); return; }
 
         section.style.display = "block";
-        cd.innerText = localRemaining + "s";
-
+        cd.innerText          = localRemaining + "s";
         const pct = Math.max(0, Math.min(100, (localRemaining / localTotal) * 100));
         bar.style.width = pct + "%";
 
-        // Colour feedback
         bar.classList.remove("warn", "danger");
-        if (pct <= 25)      bar.classList.add("danger");
+        if      (pct <= 25) bar.classList.add("danger");
         else if (pct <= 50) bar.classList.add("warn");
     }
 
-    // ── Render ─────────────────────────────────────────────────────
+    // ── Fullscreen overlay helpers ─────────────────────────
+    let overlayTick     = null;
+    let overlayRemaining = 0;
+
+    function showOverlay(seconds) {
+        clearInterval(overlayTick);
+        overlayRemaining = seconds;
+
+        const overlay = document.getElementById("countdown-overlay");
+        const num     = document.getElementById("countdown-overlay-number");
+
+        overlay.classList.add("active");
+        num.innerText = overlayRemaining;
+
+        overlayTick = setInterval(() => {
+            overlayRemaining--;
+            num.innerText = overlayRemaining > 0 ? overlayRemaining : "";
+            if (overlayRemaining <= 0) {
+                clearInterval(overlayTick);
+                hideOverlay();
+            }
+        }, 1000);
+    }
+
+    function hideOverlay() {
+        clearInterval(overlayTick);
+        document.getElementById("countdown-overlay").classList.remove("active");
+        document.getElementById("countdown-overlay-number").innerText = "-";
+    }
+
+    // ── Render ────────────────────────────────────────────
     function renderQuestion(payload) {
-        document.getElementById("status").innerText       = payload.phase;
+        document.getElementById("status").innerText     = payload.phase;
         document.getElementById("question-text").innerText = payload.question_text || "";
-        document.getElementById("score").innerText        = "Score: " + payload.score;
+        document.getElementById("score").innerText      = "Score: " + payload.score;
+
+        // Show blocking overlay during pre-question countdown
+        if (payload.phase === "countdown") {
+            showOverlay(payload.remaining_seconds || 0);
+            stopTimer();
+            document.getElementById("answers").innerHTML = "";
+            return;
+        }
+
+        // Hide overlay once answering begins
+        hideOverlay();
 
         const isAnswering = payload.phase === "answering";
         const canClick    = isAnswering && !payload.has_answered_current;
-
-        const answersDiv = document.getElementById("answers");
+        const answersDiv  = document.getElementById("answers");
         answersDiv.innerHTML = "";
+
         (payload.answers || []).forEach(a => {
-            const btn = document.createElement("button");
+            const btn       = document.createElement("button");
             btn.className   = "answer-btn";
             btn.textContent = a.text;
             btn.disabled    = !canClick;
@@ -143,7 +218,6 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
             answersDiv.appendChild(btn);
         });
 
-        // Start smooth local countdown only while answering
         if (isAnswering && payload.remaining_seconds > 0) {
             startLocalCountdown(payload.remaining_seconds, payload.total_seconds);
         } else {
@@ -158,8 +232,9 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
         });
     }
 
-    // ── WebSocket ──────────────────────────────────────────────────
+    // ── WebSocket ─────────────────────────────────────────
     const ws = new WebSocket(`ws://${location.host}/ws/participants/${participantID}`);
+
     ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
         switch (msg.type) {
@@ -167,8 +242,10 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
             case "error":      alert(msg.payload.message);  break;
         }
     };
+
     ws.onclose = () => {
         stopTimer();
+        hideOverlay();
         document.getElementById("status").innerText = "Disconnected. Please refresh.";
     };
 
