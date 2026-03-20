@@ -47,6 +47,20 @@ func (m *Manager) Delete(sessionID uuid.UUID) {
 	}
 }
 
+// IsParticipantConnected reports whether the participant currently has an active WS connection.
+func (m *Manager) IsParticipantConnected(sessionID, participantID uuid.UUID) bool {
+	m.mu.RLock()
+	h, ok := m.hubs[sessionID]
+	m.mu.RUnlock()
+	if !ok {
+		return false
+	}
+	h.mu.RLock()
+	_, connected := h.clients[participantID]
+	h.mu.RUnlock()
+	return connected
+}
+
 func (h *SessionHub) SendToParticipant(participantID uuid.UUID, msg []byte) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
