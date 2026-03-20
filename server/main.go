@@ -58,7 +58,7 @@ func main() {
 		admin.POST("/quizzes/:quizID/sessions/:sessionID/delete", ah.DeleteSession)
 	}
 
-	uh := handlers.NewUser(quizRepo)
+	uh := handlers.NewUser(quizRepo, manager)
 	user := r.Group("/user", handlers.UserAuthMiddleware)
 	{
 		user.GET("/sessions/:sessionID", uh.JoinSession)
