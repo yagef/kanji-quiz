@@ -16,8 +16,8 @@ type UserHandler struct {
 	live *ws.Manager
 }
 
-func NewUser(repo *repository.QuizRepo) *UserHandler {
-	return &UserHandler{repo: repo}
+func NewUser(repo *repository.QuizRepo, live *ws.Manager) *UserHandler {
+	return &UserHandler{repo: repo, live: live}
 }
 
 func (h *UserHandler) JoinSession(c *gin.Context) {
@@ -34,13 +34,11 @@ func (h *UserHandler) JoinSession(c *gin.Context) {
 		HandleErr(http.StatusInternalServerError, "Session error", err).ServeHTTP(w, r)
 		return
 	}
-
 	name := userSession.Values["user_id"].(string)
 	if name == "" {
 		HandleError(http.StatusBadRequest, "Name is required", "").ServeHTTP(w, r)
 		return
 	}
-
 	session, err := h.repo.GetSession(c.Request.Context(), sessionID)
 	if err != nil {
 		c.String(http.StatusNotFound, "Session not found")
@@ -62,36 +60,41 @@ func (h *UserHandler) JoinSession(c *gin.Context) {
 		c.Redirect(http.StatusSeeOther, "/user/participants/"+p.ID.String()+"/results")
 		return
 	}
-
 	u, err := h.repo.GetOrCreateUserByName(c.Request.Context(), name)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
-
-	if _, err := h.repo.GetParticipantByUserAndSession(c.Request.Context(), u.ID, sessionID); err == nil {
-		logout(w, r)
-		err := pages.UserLogin("User with same name already a participant",
-			"/user/sessions/"+sessionID.String()).Render(r.Context(), w)
-		if err != nil {
-			c.String(http.StatusInternalServerError, err.Error())
+	if p, err := h.repo.GetParticipantByUserAndSession(c.Request.Context(), u.ID, sessionID); err == nil {
+		// Participant record already exists — check if they are currently connected via WS.
+		if h.live.IsParticipantConnected(sessionID, p.ID) {
+			err := pages.UserLogin("Already connected to this session from another tab or device",
+				"/user/sessions/"+sessionID.String()).Render(r.Context(), w)
+			if err != nil {
+				c.String(http.StatusInternalServerError, err.Error())
+			}
+			return
 		}
+		// Not connected via WS — let them reconnect (restore participant_id in session).
+		userSession.Values["participant_id"] = p.ID.String()
+		if err := userSession.Save(r, w); err != nil {
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+		c.Redirect(http.StatusSeeOther, "/user/participants/play")
 		return
 	}
-
 	p, err := h.repo.CreateParticipant(c.Request.Context(), u.ID, sessionID)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
-
 	userSession.Values["participant_id"] = p.ID.String()
 	err = userSession.Save(r, w)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
-
 	c.Redirect(http.StatusSeeOther, "/user/participants/play")
 }
 
@@ -104,21 +107,18 @@ func (h *UserHandler) ParticipantPage(c *gin.Context) {
 		HandleErr(http.StatusInternalServerError, "Session error", err).ServeHTTP(w, r)
 		return
 	}
-
 	id, ok := userSession.Values["participant_id"].(string)
 	if !ok || id == "" {
 		logout(w, r)
 		HandleError(http.StatusInternalServerError, "Failed get participant ID", "").ServeHTTP(w, r)
 		return
 	}
-
 	participantID, err := uuid.Parse(id)
 	if err != nil {
 		logout(w, r)
 		HandleErr(http.StatusInternalServerError, "Session error", err).ServeHTTP(w, r)
 		return
 	}
-
 	// Load participant, join session & quiz
 	p, err := h.repo.GetParticipant(c.Request.Context(), participantID)
 	if err != nil {
@@ -126,7 +126,6 @@ func (h *UserHandler) ParticipantPage(c *gin.Context) {
 		c.String(http.StatusNotFound, "Participant not found")
 		return
 	}
-
 	session, err := h.repo.GetSession(c.Request.Context(), p.SessionID)
 	if err != nil {
 		c.String(http.StatusNotFound, "Session not found")
@@ -136,13 +135,11 @@ func (h *UserHandler) ParticipantPage(c *gin.Context) {
 		c.Redirect(http.StatusSeeOther, "/user/participants/"+participantID.String()+"/results")
 		return
 	}
-
 	quiz, err := h.repo.GetQuiz(c.Request.Context(), session.QuizID)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
-
 	render(c, http.StatusOK, user.ParticipantPage(quiz, session, p))
 }
 
@@ -160,7 +157,6 @@ func (h *UserHandler) History(c *gin.Context) {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
-
 	entries, err := h.repo.GetUserHistory(r.Context(), name)
 	if err != nil {
 		HandleErr(http.StatusInternalServerError, "Could not load history", err).ServeHTTP(w, r)
@@ -172,12 +168,10 @@ func (h *UserHandler) History(c *gin.Context) {
 // SessionResult shows every answer the user gave in one past session.
 func (h *UserHandler) SessionResult(c *gin.Context) {
 	w, r := c.Writer, c.Request
-
 	participantID, ok := mustUUID(c, c.Param("participantID"))
 	if !ok {
 		return
 	}
-
 	// Security: verify the participant belongs to the logged-in user
 	userSession, err := store.Get(r, "session-name")
 	if err != nil {
@@ -186,7 +180,6 @@ func (h *UserHandler) SessionResult(c *gin.Context) {
 		return
 	}
 	name, _ := userSession.Values["user_id"].(string)
-
 	p, err := h.repo.GetParticipant(r.Context(), participantID)
 	if err != nil {
 		HandleError(http.StatusNotFound, "Participant not found", "").ServeHTTP(w, r)
@@ -198,13 +191,11 @@ func (h *UserHandler) SessionResult(c *gin.Context) {
 		HandleError(http.StatusForbidden, "Access denied", "").ServeHTTP(w, r)
 		return
 	}
-
 	quiz, err := h.repo.GetSessionQuiz(r.Context(), p.SessionID)
 	if err != nil {
 		HandleErr(http.StatusInternalServerError, "Could not load quiz", err).ServeHTTP(w, r)
 		return
 	}
-
 	submissions, err := h.repo.GetParticipantSubmissions(r.Context(), participantID)
 	if err != nil {
 		HandleErr(http.StatusInternalServerError, "Could not load submissions", err).ServeHTTP(w, r)
