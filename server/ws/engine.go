@@ -91,46 +91,42 @@ func (e *Engine) InitSession(ctx context.Context, sessionID, quizID uuid.UUID, a
 	return nil
 }
 
-func (e *Engine) StartQuiz(ctx context.Context, sessionID uuid.UUID) error {
+// StartQuiz
+func (e *Engine) StartQuiz(sessionID uuid.UUID) error {
 	state := e.getState(sessionID)
 	if state == nil {
 		return fmt.Errorf("session not initialized")
 	}
-
 	state.mu.Lock()
 	defer state.mu.Unlock()
 
 	if state.Phase != PhaseWaiting {
 		return fmt.Errorf("cannot start from phase %s", state.Phase)
 	}
-
 	state.CurrentIndex = 0
-	go e.runQuestion(ctx, state.SessionID, state.CurrentIndex)
+	go e.runQuestion(context.Background(), state.SessionID, state.CurrentIndex)
 	return nil
 }
 
-func (e *Engine) NextQuestion(ctx context.Context, sessionID uuid.UUID) error {
+// NextQuestion
+func (e *Engine) NextQuestion(sessionID uuid.UUID) error {
 	state := e.getState(sessionID)
 	if state == nil {
 		return fmt.Errorf("session not found")
 	}
-
 	state.mu.Lock()
 	defer state.mu.Unlock()
 
 	if state.Phase != PhasePaused {
 		return fmt.Errorf("can only go next from paused phase")
 	}
-
 	if state.CurrentIndex+1 >= len(state.Rounds) {
-		// No more questions
 		state.Phase = PhaseFinished
-		go e.broadcastState(ctx, state.SessionID)
+		go e.broadcastState(context.Background(), state.SessionID)
 		return nil
 	}
-
 	state.CurrentIndex++
-	go e.runQuestion(ctx, state.SessionID, state.CurrentIndex)
+	go e.runQuestion(context.Background(), state.SessionID, state.CurrentIndex)
 	return nil
 }
 

@@ -271,7 +271,7 @@ func (h *AdminHandler) InitQuiz(c *gin.Context) {
 		return
 	}
 
-	if err := h.engine.StartQuiz(ctx, sessionID); err != nil {
+	if err := h.engine.StartQuiz(sessionID); err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -290,7 +290,7 @@ func (h *AdminHandler) NextQuestion(c *gin.Context) {
 		return
 	}
 
-	if err := h.engine.NextQuestion(c.Request.Context(), sessionID); err != nil {
+	if err := h.engine.NextQuestion(sessionID); err != nil {
 		c.String(http.StatusBadRequest, err.Error())
 		return
 	}
