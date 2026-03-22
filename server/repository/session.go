@@ -87,11 +87,13 @@ func (r *QuizRepo) DeleteSession(ctx context.Context, id uuid.UUID) error {
 // ListParticipants List participants for a session
 func (r *QuizRepo) ListParticipants(ctx context.Context, sessionID uuid.UUID) ([]model.Participant, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT p.id, p.user_id, u.name, p.score 
-		FROM participants p
-		JOIN users u ON p.user_id = u.id
-		WHERE p.session_id = $1
-		ORDER BY p.score DESC
+        SELECT p.id, p.user_id, u.name, COALESCE(SUM(s.score), 0) AS score
+        FROM participants p
+        JOIN users u ON p.user_id = u.id
+        LEFT JOIN submissions s ON s.participant_id = p.id
+        WHERE p.session_id = $1
+        GROUP BY p.id, p.user_id, u.name
+        ORDER BY score DESC
 	`, sessionID)
 	if err != nil {
 		return nil, err
@@ -175,6 +177,18 @@ func (r *QuizRepo) CountSubmissionsForQuestion(ctx context.Context, sessionID, q
 		sessionID, questionID,
 	).Scan(&count)
 	return count, err
+}
+
+// ClearSessionAnswers deletes all submissions for every participant in the
+// session and resets their scores to 0. Call before the first question is sent.
+func (r *QuizRepo) ClearSessionAnswers(ctx context.Context, sessionID uuid.UUID) error {
+	_, err := r.db.Exec(ctx, `
+        DELETE FROM submissions s
+        USING participants p
+        WHERE p.id = s.participant_id
+          AND p.session_id = $1
+    `, sessionID)
+	return err
 }
 
 var ErrDuplicateSubmission = errors.New("duplicate submission")

@@ -159,53 +159,39 @@ func (r *QuizRepo) InsertSubmissionAndUpdateScore(
 	timeTakenMs int,
 	timeLimit int,
 ) error {
-	tx, err := r.db.Begin(ctx)
-	if err != nil {
-		return err
+	var score int
+	if isCorrect {
+		if timeTakenMs < bonusThreshold {
+			score = maxScore
+		} else {
+			score = maxScore * (timeLimit - timeTakenMs) / (timeLimit - bonusThreshold)
+		}
+		if score < 0 {
+			score = 0
+		}
 	}
-	defer tx.Rollback(ctx)
 
-	_, err = tx.Exec(ctx, `
-		INSERT INTO submissions (participant_id, question_id, answer_id, is_correct, time_taken_ms)
-		VALUES ($1, $2, $3, $4, $5)
-	`, participantID, questionID, answerID, isCorrect, timeTakenMs)
+	_, err := r.db.Exec(ctx, `
+        INSERT INTO submissions (participant_id, question_id, answer_id, is_correct, time_taken_ms, score)
+        VALUES ($1, $2, $3, $4, $5, $6)
+    `, participantID, questionID, answerID, isCorrect, timeTakenMs, score)
 	if err != nil {
-		// check unique violation
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation [web:80]
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return ErrDuplicateSubmission
 		}
 		return err
 	}
-
-	var score int
-	if timeTakenMs < bonusThreshold {
-		score = maxScore
-	} else {
-		score = maxScore * (timeLimit - timeTakenMs) / (timeLimit - bonusThreshold)
-	}
-
-	if isCorrect {
-		_, err = tx.Exec(ctx, `
-			UPDATE participants
-			SET score = score + $2
-			WHERE id = $1
-		`, participantID, score)
-		if err != nil {
-			return err
-		}
-	}
-
-	return tx.Commit(ctx)
+	return nil
 }
 
 func (r *QuizRepo) GetParticipantScore(ctx context.Context, participantID uuid.UUID) (int, error) {
 	var score int
 	err := r.db.QueryRow(ctx, `
-		SELECT score
-		FROM participants
-		WHERE id = $1
-	`, participantID).Scan(&score)
+        SELECT COALESCE(SUM(score), 0)
+        FROM submissions
+        WHERE participant_id = $1
+    `, participantID).Scan(&score)
 	return score, err
 }
 
@@ -226,16 +212,15 @@ func (r *QuizRepo) InsertTimeoutSubmissions(
 	timeLimitMs int,
 ) error {
 	_, err := r.db.Exec(ctx, `
-        INSERT INTO submissions (participant_id, question_id, answer_id, is_correct, time_taken_ms)
-        SELECT p.id, $2, NULL, false, $3
-        FROM participants p
-        WHERE p.session_id = $1
-          AND NOT EXISTS (
-              SELECT 1 FROM submissions s
-              WHERE s.participant_id = p.id
-                AND s.question_id   = $2
-          )
-        ON CONFLICT DO NOTHING
+    INSERT INTO submissions (participant_id, question_id, answer_id, is_correct, time_taken_ms, score)
+    SELECT p.id, $2, NULL, false, $3, 0
+    FROM participants p
+    WHERE p.session_id = $1
+      AND NOT EXISTS (
+          SELECT 1 FROM submissions s
+          WHERE s.participant_id = p.id AND s.question_id = $2
+      )
+    ON CONFLICT DO NOTHING
     `, sessionID, questionID, timeLimitMs)
 	return err
 }

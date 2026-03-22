@@ -259,26 +259,31 @@ func (h *AdminHandler) InitQuiz(c *gin.Context) {
 		countdownSeconds = 5
 	}
 
-	session, err := h.repo.GetSession(c.Request.Context(), sessionID)
+	ctx := c.Request.Context()
+	session, err := h.repo.GetSession(ctx, sessionID)
 	if err != nil {
 		c.String(http.StatusNotFound, "session not found")
 		return
 	}
 
-	if err := h.engine.InitSession(c.Request.Context(), sessionID, session.QuizID, answerSeconds, countdownSeconds); err != nil {
-		c.String(http.StatusBadRequest, err.Error())
+	if err := h.engine.InitSession(ctx, sessionID, session.QuizID, answerSeconds, countdownSeconds); err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	if err := h.engine.StartQuiz(c.Request.Context(), sessionID); err != nil {
-		c.String(http.StatusBadRequest, err.Error())
+	if err := h.engine.StartQuiz(ctx, sessionID); err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if err := h.repo.ClearSessionAnswers(ctx, sessionID); err != nil {
+		c.String(http.StatusInternalServerError, "failed to reset session: "+err.Error())
 		return
 	}
 
 	c.Redirect(http.StatusSeeOther, "/admin/sessions/"+sessionID.String())
 }
 
-// "Next question" button
 func (h *AdminHandler) NextQuestion(c *gin.Context) {
 	sessionID, ok := mustUUID(c, c.Param("sessionID"))
 	if !ok {

@@ -45,8 +45,7 @@ CREATE UNIQUE INDEX idx_users_name ON users (lower(name));
 CREATE TABLE participants (
     id        	    UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
     user_id  		UUID REFERENCES users(id) NOT NULL, -- create new user if name wasn't found
-    session_id  	UUID REFERENCES quiz_sessions(id) NOT NULL,
-    score    		INT DEFAULT 0 CHECK (score >= 0)
+    session_id  	UUID REFERENCES quiz_sessions(id) NOT NULL
 );
 
 CREATE UNIQUE INDEX idx_participants_user_id ON participants (user_id, session_id);
@@ -57,7 +56,8 @@ CREATE TABLE submissions (
     question_id    UUID REFERENCES questions(id) NOT NULL,
     answer_id      UUID REFERENCES answers(id),
     is_correct     BOOLEAN NOT NULL DEFAULT FALSE,
-    time_0 CHECK (time_taken_ms >= 0)
+    time_0 CHECK (time_taken_ms >= 0),
+    score          INT NOT NULL DEFAULT 0 CHECK (score >= 0)
 );
 
 ALTER TABLE submissions ADD CONSTRAINT uniq_participant_question UNIQUE (participant_id, question_id);

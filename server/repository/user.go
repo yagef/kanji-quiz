@@ -30,10 +30,12 @@ func (r *QuizRepo) GetParticipantByUserAndSession(ctx context.Context, userID, s
 	var p model.Participant
 
 	err := r.db.QueryRow(ctx, `
-		SELECT p.id, p.user_id, u.name, p.score, p.session_id
+		SELECT p.id, p.user_id, u.name, COALESCE(SUM(s.score), 0) AS score, p.session_id
 		FROM participants p
 		JOIN users u ON p.user_id = u.id
-		WHERE p.user_id = $1 AND p.session_id = $2
+		LEFT JOIN submissions s ON s.participant_id = p.id
+		WHERE p.id = $1
+		GROUP BY p.id, p.user_id, u.name, p.session_id
 	`, userID, sessionID).
 		Scan(&p.ID, &p.UserID, &p.Name, &p.Score, &p.SessionID)
 
@@ -51,7 +53,7 @@ func (r *QuizRepo) CreateParticipant(ctx context.Context, userID, sessionID uuid
 
 	// You likely want the name and score too:
 	err = r.db.QueryRow(ctx, `
-		SELECT p.id, p.user_id, u.name, p.score, p.session_id
+		SELECT p.id, p.user_id, u.name, 0 AS score, p.session_id
 		FROM participants p
 		JOIN users u ON p.user_id = u.id
 		WHERE p.id = $1
@@ -64,10 +66,12 @@ func (r *QuizRepo) GetParticipant(ctx context.Context, participantID uuid.UUID) 
 	var p model.Participant
 
 	err := r.db.QueryRow(ctx, `
-		SELECT p.id, p.user_id, u.name, p.score, p.session_id
+		SELECT p.id, p.user_id, u.name, COALESCE(SUM(s.score), 0) AS score, p.session_id
 		FROM participants p
 		JOIN users u ON p.user_id = u.id
+		LEFT JOIN submissions s ON s.participant_id = p.id
 		WHERE p.id = $1
+		GROUP BY p.id, p.user_id, u.name, p.session_id
 	`, participantID).
 		Scan(&p.ID, &p.UserID, &p.Name, &p.Score, &p.SessionID)
 
@@ -77,19 +81,21 @@ func (r *QuizRepo) GetParticipant(ctx context.Context, participantID uuid.UUID) 
 // GetUserHistory returns all sessions the user participated in, newest first.
 func (r *QuizRepo) GetUserHistory(ctx context.Context, userName string) ([]model.HistoryEntry, error) {
 	rows, err := r.db.Query(ctx, `
-        SELECT
-            p.id,
-            qs.id,
-            q.title,
-            qs.started_at,
-            qs.ended_at,
-            p.score
-        FROM participants p
-        JOIN quiz_sessions qs ON p.session_id = qs.id
-        JOIN quizzes       q  ON qs.quiz_id   = q.id
-        JOIN users         u  ON p.user_id     = u.id
-        WHERE lower(u.name) = lower($1)
-        ORDER BY qs.started_at DESC
+		SELECT
+			p.id,
+			qs.id,
+			q.title,
+			qs.started_at,
+			qs.ended_at,
+			COALESCE(SUM(s.score), 0) AS score
+		FROM participants p
+		JOIN quiz_sessions qs ON p.session_id = qs.id
+		JOIN quizzes       q  ON qs.quiz_id   = q.id
+		JOIN users         u  ON p.user_id    = u.id
+		LEFT JOIN submissions s ON s.participant_id = p.id
+		WHERE lower(u.name) = lower($1)
+		GROUP BY p.id, qs.id, q.title, qs.started_at, qs.ended_at
+		ORDER BY qs.started_at DESC
     `, userName)
 	if err != nil {
 		return nil, err
