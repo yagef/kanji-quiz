@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"kanji-quiz/server/repository"
+	"log"
 	"math/rand"
 	"sync"
 	"time"
@@ -122,6 +123,9 @@ func (e *Engine) NextQuestion(sessionID uuid.UUID) error {
 	}
 	if state.CurrentIndex+1 >= len(state.Rounds) {
 		state.Phase = PhaseFinished
+		if err := e.repo.EndSession(context.Background(), state.SessionID); err != nil {
+			log.Printf("EndSession failed: %v", err)
+		}
 		go e.broadcastState(context.Background(), state.SessionID)
 		return nil
 	}

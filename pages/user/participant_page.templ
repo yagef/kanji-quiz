@@ -85,7 +85,7 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
 <h1>{ quiz.Title }</h1>
 <p>You are logged in as <strong>{ p.Name }</strong></p>
 
-<p id="status">Waiting for quiz to start…</p>
+<p id="status"></p>
 <p id="question-text"></p>
 <p id="score">Score: 0</p>
 
@@ -184,7 +184,6 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
 
     // ── Render ────────────────────────────────────────────
     function renderQuestion(payload) {
-        document.getElementById("status").innerText     = payload.phase;
         document.getElementById("question-text").innerText = payload.question_text || "";
         document.getElementById("score").innerText      = "Score: " + payload.score;
 
