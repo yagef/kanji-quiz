@@ -98,6 +98,9 @@ func (e *Engine) StartQuiz(sessionID uuid.UUID) error {
 	if state == nil {
 		return fmt.Errorf("session not initialized")
 	}
+	if e.hubs.ConnectedCount(sessionID) == 0 {
+		return fmt.Errorf("cannot start: no active participants connected")
+	}
 	state.mu.Lock()
 	defer state.mu.Unlock()
 
@@ -225,18 +228,38 @@ func (e *Engine) broadcastState(ctx context.Context, sessionID uuid.UUID) error 
 		return err
 	}
 
-	rawPayload, err := json.Marshal(base)
-	if err != nil {
-		return err
-	}
-	env := Envelope{Type: MsgStateSync, Payload: rawPayload}
-	msg, err := json.Marshal(env)
+	participants, err := e.repo.ListParticipants(ctx, sessionID)
 	if err != nil {
 		return err
 	}
 
 	hub := e.hubs.GetOrCreate(sessionID)
-	hub.Broadcast(msg)
+	for _, p := range participants {
+		payload := base
+
+		if score, err := e.repo.GetParticipantScore(ctx, p.ID); err == nil {
+			payload.Score = score
+		}
+
+		if payload.QuestionID != "" {
+			if qID, err := uuid.Parse(payload.QuestionID); err == nil {
+				if answered, err := e.repo.HasParticipantAnswered(ctx, p.ID, qID); err == nil {
+					payload.HasAnsweredCurrent = answered
+				}
+			}
+		}
+
+		raw, err := json.Marshal(payload)
+		if err != nil {
+			continue
+		}
+		env := Envelope{Type: MsgStateSync, Payload: raw}
+		msg, err := json.Marshal(env)
+		if err != nil {
+			continue
+		}
+		hub.SendToParticipant(p.ID, msg)
+	}
 	return nil
 }
 

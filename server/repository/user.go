@@ -34,7 +34,7 @@ func (r *QuizRepo) GetParticipantByUserAndSession(ctx context.Context, userID, s
 		FROM participants p
 		JOIN users u ON p.user_id = u.id
 		LEFT JOIN submissions s ON s.participant_id = p.id
-		WHERE p.id = $1
+		WHERE p.user_id = $1 AND p.session_id = $2
 		GROUP BY p.id, p.user_id, u.name, p.session_id
 	`, userID, sessionID).
 		Scan(&p.ID, &p.UserID, &p.Name, &p.Score, &p.SessionID)

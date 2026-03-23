@@ -23,9 +23,8 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
         #progress-bar { width: 100%; height: 12px; background: #eee; border-radius: 6px; overflow: hidden; }
         #progress-bar-inner {
             height: 100%;
-            width: 0%;
+            width: 0;
             background: #4caf50;
-            transition: width 1s linear;
         }
         #progress-bar-inner.warn   { background: #ff9800; }
         #progress-bar-inner.danger { background: #f44336; }
@@ -113,9 +112,17 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
 
     function startLocalCountdown(remaining, total) {
         clearInterval(tickInterval);
-        localRemaining = remaining;
-        localTotal     = total;
+        localRemaining = remaining * 10;
+        localTotal = total * 10;
+
+        const bar = document.getElementById("progress-bar-inner");
+        bar.style.transition = "none";
         applyCountdownUI();
+
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            bar.style.transition = "width 0.1s linear";
+        }));
+
         tickInterval = setInterval(() => {
             localRemaining--;
             if (localRemaining <= 0) {
@@ -123,15 +130,16 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
                 clearInterval(tickInterval);
             }
             applyCountdownUI();
-        }, 1000);
+        }, 100);
     }
 
     function stopTimer() {
         clearInterval(tickInterval);
         const bar = document.getElementById("progress-bar-inner");
+        bar.style.transition = "none";
         bar.style.width = "0%";
-        bar.className   = "";
-        document.getElementById("countdown").innerText      = "";
+        bar.className = "";
+        document.getElementById("countdown").innerText = "";
         document.getElementById("timer-section").style.display = "none";
     }
 
@@ -143,7 +151,7 @@ templ ParticipantPage(quiz model.Quiz, session model.QuizSession, p model.Partic
         if (localRemaining <= 0 || !localTotal) { stopTimer(); return; }
 
         section.style.display = "block";
-        cd.innerText          = localRemaining + "s";
+        cd.innerText          = (localRemaining / 10).toFixed(1) + "s";
         const pct = Math.max(0, Math.min(100, (localRemaining / localTotal) * 100));
         bar.style.width = pct + "%";
 

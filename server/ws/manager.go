@@ -72,3 +72,17 @@ func (h *SessionHub) SendToParticipant(participantID uuid.UUID, msg []byte) {
 		}
 	}
 }
+
+// manager.go
+
+func (m *Manager) ConnectedCount(sessionID uuid.UUID) int {
+	m.mu.RLock()
+	h, ok := m.hubs[sessionID]
+	m.mu.RUnlock()
+	if !ok {
+		return 0
+	}
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return len(h.clients)
+}

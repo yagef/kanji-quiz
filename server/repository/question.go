@@ -164,7 +164,10 @@ func (r *QuizRepo) DeleteQuestion(ctx context.Context, quizID, questionID uuid.U
 
 func (r *QuizRepo) GetAnswersByIDs(ctx context.Context, answerIDs []uuid.UUID) ([]model.Answer, error) {
 	rows, err := r.db.Query(ctx,
-		`SELECT id, question_id, text FROM answers WHERE id = ANY($1)`, answerIDs,
+		`SELECT a.id, a.question_id, a.text
+FROM answers a
+JOIN unnest($1::uuid[]) WITH ORDINALITY AS t(id, ord) ON a.id = t.id
+ORDER BY t.ord`, answerIDs,
 	)
 	if err != nil {
 		return nil, err
