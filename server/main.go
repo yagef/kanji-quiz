@@ -27,7 +27,7 @@ func main() {
 
 	db, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
 	if err != nil {
-		log.Fatalf(err.Error())
+		log.Fatalf("%s", err.Error())
 		return
 	}
 
@@ -82,7 +82,7 @@ func main() {
 	})
 	err = r.Run(":8080")
 	if err != nil {
-		log.Fatalf(err.Error())
+		log.Fatalf("%s", err.Error())
 		return
 	}
 }
