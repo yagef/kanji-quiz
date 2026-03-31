@@ -45,8 +45,8 @@ func (h *SessionHub) RemoveClient(participantID uuid.UUID) {
 }
 
 func (h *SessionHub) Broadcast(msg []byte) {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	for pid, c := range h.clients {
 		select {
 		case c.Send <- msg:

@@ -24,14 +24,14 @@ func (s *SessionState) CurrentRound() *QuestionRound {
 }
 
 type Engine struct {
-	repo     *repository.QuizRepo
+	repo     repository.QuizRepoIface
 	hubs     *Manager
 	sessions map[uuid.UUID]*SessionState
 
 	mu sync.RWMutex
 }
 
-func NewEngine(repo *repository.QuizRepo, hubs *Manager) *Engine {
+func NewEngine(repo repository.QuizRepoIface, hubs *Manager) *Engine {
 	return &Engine{
 		repo:     repo,
 		hubs:     hubs,

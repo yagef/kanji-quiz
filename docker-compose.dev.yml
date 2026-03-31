@@ -17,8 +17,7 @@ services:
     security_opt:
       - seccomp:unconfined
     environment:
-      # pgx-friendly connection string style
-      DATABASE_URL: "postgres://postgres:${PG_PASS}@db:5432/kanji?sslmode=disable"
+      DATABASE_URL: ${DATABASE_URL}
     depends_on:
       - db
     env_file:
@@ -30,8 +29,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${PG_PASS}
       POSTGRES_DB: kanji
-    ports:
-      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
