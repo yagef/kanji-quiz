@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /f/Projects/Study/kanji-quiz -name *_test.go -o -name *_test.templ)",
+      "Bash(wc -l /f/Projects/Study/kanji-quiz/server/**/*.go)",
+      "Bash(go get:*)",
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(go mod:*)"
+    ]
+  }
+}
