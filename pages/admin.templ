@@ -18,6 +18,7 @@ templ AdminLogin(errorMsg string, returnURL string) {
 </head>
 <body>
 <div class="login-container">
+    <h2>Admin Login</h2>
     if errorMsg != "" {
     <div class="error-wrapper">
         <div class="error">{ errorMsg }</div>
@@ -27,7 +28,7 @@ templ AdminLogin(errorMsg string, returnURL string) {
     <form action="/admin" method="post">
         <input type="hidden" name="returnURL" value={ returnURL }/>
 
-        <label for="password"></label>
+        <label for="password">Password</label>
         <input type="password" id="password" name="password" placeholder="Enter password" required />
 
         <button type="submit">Login</button>

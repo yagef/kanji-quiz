@@ -134,6 +134,20 @@ func (r *QuizRepo) DeleteAnswer(ctx context.Context, questionID, answerID uuid.U
 	return tx.Commit(ctx)
 }
 
+func (r *QuizRepo) UpdateQuestion(ctx context.Context, questionID uuid.UUID, kanji string, typeID int) error {
+	tag, err := r.db.Exec(ctx,
+		`UPDATE questions SET kanji = $1, type_id = $2 WHERE id = $3`,
+		kanji, typeID, questionID,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("question not found")
+	}
+	return nil
+}
+
 func (r *QuizRepo) DeleteQuestion(ctx context.Context, quizID, questionID uuid.UUID) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {

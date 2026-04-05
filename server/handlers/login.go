@@ -16,7 +16,7 @@ func UserLoginHandler(c *gin.Context) {
 	case http.MethodGet:
 		userGetHandler(c.Writer, c.Request)
 	default:
-		HandleError(http.StatusMethodNotAllowed, "Method are not allowed", "").ServeHTTP(c.Writer, c.Request)
+		HandleError(http.StatusMethodNotAllowed, "Method not allowed", "").ServeHTTP(c.Writer, c.Request)
 	}
 }
 
@@ -36,7 +36,7 @@ func userPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	if login == "" {
 		w.WriteHeader(http.StatusUnauthorized)
-		userError("Login are required").ServeHTTP(w, r)
+		userError("Name is required").ServeHTTP(w, r)
 		return
 	}
 

@@ -18,6 +18,7 @@ templ UserLogin(errorMsg string, returnURL string) {
 </head>
 <body>
 <div class="login-container">
+    <h2>Kanji Quiz</h2>
     if errorMsg != "" {
     <div class="error-wrapper">
         <div class="error">{ errorMsg }</div>
@@ -27,7 +28,7 @@ templ UserLogin(errorMsg string, returnURL string) {
     <form action="/login" method="post">
         <input type="hidden" name="returnURL" value={ returnURL }/>
 
-        <label for="login"></label>
+        <label for="login">Your name</label>
         <input type="text" id="login" name="login" placeholder="Enter your name" required />
 
         <button type="submit">Continue</button>

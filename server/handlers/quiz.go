@@ -6,6 +6,8 @@ import (
 	"kanji-quiz/server/repository"
 	"kanji-quiz/server/ws"
 	"net/http"
+	"net/url"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -67,7 +69,11 @@ func (h *AdminHandler) QuizDetail(c *gin.Context) {
 	context := c.Request.Context()
 	quiz, err := h.repo.GetQuiz(context, quizID)
 	if err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+		if repository.IsNotFound(err) {
+			HandleError(http.StatusNotFound, "Quiz not found", "").ServeHTTP(c.Writer, c.Request)
+		} else {
+			c.String(http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 	questions, err := h.repo.ListQuestions(context, quizID)
@@ -86,7 +92,19 @@ func (h *AdminHandler) QuizDetail(c *gin.Context) {
 		return
 	}
 
-	err = admin.QuizDetail(quiz, questions, answerTypes, sessions).Render(context, c.Writer)
+	seen := map[string]bool{}
+	hasDuplicates := false
+	for _, q := range questions {
+		key := q.Kanji + "|" + q.TypeText
+		if seen[key] {
+			hasDuplicates = true
+			break
+		}
+		seen[key] = true
+	}
+
+	errMsg := c.Query("err")
+	err = admin.QuizDetail(quiz, questions, answerTypes, sessions, errMsg, hasDuplicates).Render(context, c.Writer)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
@@ -96,6 +114,15 @@ func (h *AdminHandler) QuizDetail(c *gin.Context) {
 func (h *AdminHandler) CreateSession(c *gin.Context) {
 	quizID, ok := mustUUID(c, c.Param("quizID"))
 	if !ok {
+		return
+	}
+	questions, err := h.repo.ListQuestions(c.Request.Context(), quizID)
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	if len(questions) == 0 {
+		c.Redirect(http.StatusSeeOther, "/admin/quizzes/"+quizID.String()+"?err="+url.QueryEscape("Add at least one question before starting a session."))
 		return
 	}
 	s, err := h.repo.CreateSession(c.Request.Context(), quizID)
@@ -144,12 +171,20 @@ func (h *AdminHandler) QuestionDetail(c *gin.Context) {
 	context := r.Context()
 	quiz, err := h.repo.GetQuiz(context, quizID)
 	if err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+		if repository.IsNotFound(err) {
+			HandleError(http.StatusNotFound, "Quiz not found", "").ServeHTTP(w, r)
+		} else {
+			c.String(http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 	question, err := h.repo.GetQuestion(context, questionID)
 	if err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+		if repository.IsNotFound(err) {
+			HandleError(http.StatusNotFound, "Question not found", "").ServeHTTP(w, r)
+		} else {
+			c.String(http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 	answers, err := h.repo.ListAnswers(context, questionID)
@@ -157,12 +192,44 @@ func (h *AdminHandler) QuestionDetail(c *gin.Context) {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
-
-	err = admin.QuestionDetail(quiz, question, answers).Render(c.Request.Context(), w)
+	answerTypes, err := h.repo.ListAnswerTypes(context)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	err = admin.QuestionDetail(quiz, question, answers, answerTypes).Render(c.Request.Context(), w)
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+}
+
+func (h *AdminHandler) UpdateQuestion(c *gin.Context) {
+	r := c.Request
+	quizID, ok := mustUUID(c, c.Param("quizID"))
+	if !ok {
+		return
+	}
+	questionID, ok := mustUUID(c, c.Param("questionID"))
+	if !ok {
+		return
+	}
+	kanji := r.FormValue("kanji")
+	if kanji == "" {
+		c.String(http.StatusBadRequest, "kanji is required")
+		return
+	}
+	typeID, err := strconv.Atoi(r.FormValue("type_id"))
+	if err != nil {
+		c.String(http.StatusBadRequest, "invalid type_id")
+		return
+	}
+	if err := h.repo.UpdateQuestion(r.Context(), questionID, kanji, typeID); err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	c.Redirect(http.StatusSeeOther, fmt.Sprintf("/admin/quizzes/%s/questions/%s", quizID, questionID))
 }
 
 func (h *AdminHandler) AddAnswer(c *gin.Context) {

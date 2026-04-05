@@ -41,7 +41,7 @@ func (h *UserHandler) JoinSession(c *gin.Context) {
 	}
 	session, err := h.repo.GetSession(c.Request.Context(), sessionID)
 	if err != nil {
-		c.String(http.StatusNotFound, "Session not found")
+		HandleError(http.StatusNotFound, "Session not found", "The session link may be expired or incorrect.").ServeHTTP(w, r)
 		return
 	}
 	if session.EndedAt != nil {
@@ -109,8 +109,7 @@ func (h *UserHandler) ParticipantPage(c *gin.Context) {
 	}
 	id, ok := userSession.Values["participant_id"].(string)
 	if !ok || id == "" {
-		logout(w, r)
-		HandleError(http.StatusInternalServerError, "Failed get participant ID", "").ServeHTTP(w, r)
+		http.Redirect(w, r, "/user/history", http.StatusSeeOther)
 		return
 	}
 	participantID, err := uuid.Parse(id)

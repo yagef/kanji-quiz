@@ -61,7 +61,7 @@ if len(entries) == 0 {
             if e.EndedAt != nil {
             <a href={ templ.SafeURL("/user/participants/" + e.ParticipantID.String() + "/results") }>View answers</a>
             } else {
-            –
+            <a href={ templ.SafeURL("/user/sessions/" + e.SessionID.String()) }>Rejoin</a>
             }
         </td>
     </tr>

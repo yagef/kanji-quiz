@@ -45,6 +45,7 @@ func main() {
 		admin.GET("/quizzes/:quizID/questions/:questionID", ah.QuestionDetail)
 		admin.POST("/quizzes/:quizID/questions/:questionID/answers", ah.AddAnswer)
 		admin.POST("/quizzes/:quizID/questions/:questionID/correct", ah.SetCorrectAnswer)
+		admin.POST("/quizzes/:quizID/questions/:questionID/update", ah.UpdateQuestion)
 		admin.GET("/sessions/:sessionID", ah.SessionDetail)
 		admin.POST("/sessions/:sessionID/end", ah.EndSession)
 		admin.GET("/qr", ah.QR)

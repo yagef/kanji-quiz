@@ -7,7 +7,7 @@ import (
     "kanji-quiz/server/ws"
 )
 
-templ SessionDetail(joinURL string, quiz model.Quiz, session model.QuizSession, participants []model.Participant, phase ws.StatePhase) {
+templ SessionDetail(joinURL string, quiz model.Quiz, session model.QuizSession, participants []model.Participant, phase ws.StatePhase, errMsg string) {
 @Layout("Session Details") {
 <p>
     <a href={ templ.SafeURL("/admin/quizzes/" + quiz.ID.String()) }>
@@ -45,6 +45,9 @@ templ SessionDetail(joinURL string, quiz model.Quiz, session model.QuizSession, 
             <a href={ joinURL }>this link</a>
         </p>
     </div>
+    if errMsg != "" {
+    <p style="color:#b00020; font-weight:bold;">{ errMsg }</p>
+    }
     if session.EndedAt == nil && phase == ws.PhaseWaiting {
     <h2>Start Quiz</h2>
     <form method="post" action={ templ.SafeURL("/admin/sessions/" + session.ID.String() + "/init") }>
@@ -118,7 +121,8 @@ if session.EndedAt != nil || phase == ws.PhaseFinished {
     <h2>🏁 Quiz Finished</h2>
     <p>All questions have been answered.</p>
     if session.EndedAt == nil {
-    <form method="post" action={ templ.SafeURL("/admin/sessions/" + session.ID.String() + "/end") }>
+    <form method="post" action={ templ.SafeURL("/admin/sessions/" + session.ID.String() + "/end") }
+          onsubmit="return confirm('End this session? This cannot be undone.');">
     <button type="submit">Close Session</button>
     </form>
     }

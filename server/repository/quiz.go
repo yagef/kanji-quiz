@@ -6,9 +6,15 @@ import (
 	"kanji-quiz/server/model"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// IsNotFound reports whether err is a "no rows" not-found error from pgx.
+func IsNotFound(err error) bool {
+	return errors.Is(err, pgx.ErrNoRows)
+}
 
 type QuizRepo struct{ db *pgxpool.Pool }
 

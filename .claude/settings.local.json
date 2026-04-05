@@ -6,7 +6,13 @@
       "Bash(go get:*)",
       "Bash(go build:*)",
       "Bash(go test:*)",
-      "Bash(go mod:*)"
+      "Bash(go mod:*)",
+      "WebFetch(domain:localhost)",
+      "Bash(curl:*)",
+      "Bash(docker exec:*)",
+      "Bash(printf 'login=TestUser&returnURL=/admin/dashboard')",
+      "Bash(grep -v \"^$\")",
+      "Bash(grep -v \"^\\\\s*$\")"
     ]
   }
 }

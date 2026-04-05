@@ -5,9 +5,16 @@ import (
 "kanji-quiz/server/model"
 )
 
-templ QuizDetail(quiz model.Quiz, questions []model.Question, answerTypes []model.AnswerType, sessions []model.QuizSession) {
+templ QuizDetail(quiz model.Quiz, questions []model.Question, answerTypes []model.AnswerType, sessions []model.QuizSession, errMsg string, hasDuplicates bool) {
 @Layout(quiz.Title) {
 <h1>{ quiz.Title }</h1>
+
+if errMsg != "" {
+<p style="color:#b00020; font-weight:bold;">{ errMsg }</p>
+}
+if hasDuplicates {
+<p style="color:#e65100;">⚠ Some questions share the same text and type — check for duplicates.</p>
+}
 
 <!-- Add Question -->
 <section>

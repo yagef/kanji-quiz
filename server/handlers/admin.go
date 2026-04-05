@@ -4,7 +4,9 @@ import (
 	"context"
 	"kanji-quiz/pages"
 	"kanji-quiz/pages/admin"
+	"kanji-quiz/server/repository"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -45,7 +47,7 @@ func adminPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	if password == "" {
 		w.WriteHeader(http.StatusUnauthorized)
-		adminError("Password are required").ServeHTTP(w, r)
+		adminError("Password is required").ServeHTTP(w, r)
 		return
 	}
 
@@ -172,7 +174,11 @@ func (h *AdminHandler) SessionDetail(c *gin.Context) {
 
 	session, err := h.repo.GetSession(c.Request.Context(), sessionID)
 	if err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+		if repository.IsNotFound(err) {
+			HandleError(http.StatusNotFound, "Session not found", "").ServeHTTP(c.Writer, c.Request)
+		} else {
+			c.String(http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 
@@ -200,7 +206,8 @@ func (h *AdminHandler) SessionDetail(c *gin.Context) {
 	joinURL := baseURL + "/user/sessions/" + sessionID.String()
 
 	phase := h.engine.GetPhase(sessionID)
-	if err := admin.SessionDetail(joinURL, quiz, session, participants, phase).
+	errMsg := c.Query("err")
+	if err := admin.SessionDetail(joinURL, quiz, session, participants, phase, errMsg).
 		Render(context.Background(), c.Writer); err != nil {
 		c.Status(http.StatusInternalServerError)
 		return
@@ -267,12 +274,12 @@ func (h *AdminHandler) InitQuiz(c *gin.Context) {
 	}
 
 	if err := h.engine.InitSession(ctx, sessionID, session.QuizID, answerSeconds, countdownSeconds); err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+		c.Redirect(http.StatusSeeOther, "/admin/sessions/"+sessionID.String()+"?err="+url.QueryEscape(err.Error()))
 		return
 	}
 
 	if err := h.engine.StartQuiz(sessionID); err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+		c.Redirect(http.StatusSeeOther, "/admin/sessions/"+sessionID.String()+"?err="+url.QueryEscape(err.Error()))
 		return
 	}
 

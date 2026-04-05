@@ -50,13 +50,13 @@ func HandleErr(code int, msg string, err error) *templ.ComponentHandler {
 	log.Println(err.Error())
 	return templ.Handler(pages.Error(code,
 		msg,
-		""))
+		""), templ.WithStatus(code))
 }
 
 func HandleError(code int, msg string, description string) *templ.ComponentHandler {
 	return templ.Handler(pages.Error(code,
 		msg,
-		description))
+		description), templ.WithStatus(code))
 }
 
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {

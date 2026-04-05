@@ -1,8 +1,11 @@
 package admin
 
-import "kanji-quiz/server/model"
+import (
+"fmt"
+"kanji-quiz/server/model"
+)
 
-templ QuestionDetail(quiz model.Quiz, question model.Question, answers []model.Answer) {
+templ QuestionDetail(quiz model.Quiz, question model.Question, answers []model.Answer, answerTypes []model.AnswerType) {
 @Layout("Question: " + question.Kanji) {
 <p>
     <a href={ templ.SafeURL("/admin/quizzes/" + quiz.ID.String()) }>
@@ -11,6 +14,23 @@ templ QuestionDetail(quiz model.Quiz, question model.Question, answers []model.A
 </p>
 
 <h1>{ question.Kanji }</h1>
+
+<section>
+    <h2>Edit Question</h2>
+    <form method="post" action={ templ.SafeURL("/admin/quizzes/" + quiz.ID.String() + "/questions/" + question.ID.String() + "/update") }>
+    <input type="text" name="kanji" value={ question.Kanji } required />
+    <select name="type_id">
+        for _, t := range answerTypes {
+        if question.TypeID == t.ID {
+        <option value={ fmt.Sprint(t.ID) } selected>{ t.Text }</option>
+        } else {
+        <option value={ fmt.Sprint(t.ID) }>{ t.Text }</option>
+        }
+        }
+    </select>
+    <button type="submit">Save</button>
+    </form>
+</section>
 
 <section>
     <h2>Answers</h2>
